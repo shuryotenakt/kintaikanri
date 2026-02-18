@@ -11,28 +11,62 @@
             <span class="navbar-brand">
                 ようこそ、<strong th:text="${session.user.name}">ユーザー</strong> さん
                 <span class="badge bg-light text-dark ms-2">ID: [[${session.user.userId}]]</span>
+                <span class="badge ms-2" 
+                    th:classappend="${status == 'WORK' ? 'bg-primary' : (status == 'REST' ? 'bg-warning' : 'bg-dark')}"
+                    th:text="${status == 'WORK' ? '勤務中' : (status == 'REST' ? '休憩中' : '勤務外')}">
+                </span>
             </span>
-            
             <div class="d-flex gap-2">
-                <a th:if="${session.user.role == 'ADMIN'}" href="/admin" class="btn btn-warning btn-sm fw-bold">
-                    🔧 管理者メニューへ
-                </a>
-                
+                <a th:if="${session.user.role == 'ADMIN'}" href="/admin" class="btn btn-warning btn-sm fw-bold">🔧 管理者メニューへ</a>
                 <a href="/logout" class="btn btn-outline-light btn-sm">ログアウト</a>
             </div>
         </div>
     </nav>
 
     <div class="container">
-        <div class="card p-5 shadow-sm text-center mb-5">
+        <div class="card p-4 shadow-sm text-center mb-5">
             <h2 class="mb-4">打刻パネル</h2>
-            <div class="d-flex justify-content-center gap-4">
+            
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <form action="/partner/clock-in" method="post">
-                    <button type="submit" class="btn btn-primary btn-lg px-5 shadow">出勤</button>
+                    <button type="submit" 
+                            class="btn btn-lg px-5 shadow"
+                            th:classappend="${status == 'OFF' ? 'btn-primary' : 'btn-secondary'}"
+                            th:disabled="${status != 'OFF'}">
+                        出勤
+                    </button>
                 </form>
+
+                <form action="/partner/break-start" method="post">
+                    <button type="submit" 
+                            class="btn btn-lg px-4 shadow"
+                            th:classappend="${status == 'WORK' ? 'btn-warning text-white' : 'btn-secondary'}"
+                            th:disabled="${status != 'WORK'}">
+                        休憩入り
+                    </button>
+                </form>
+
+                <form action="/partner/break-end" method="post">
+                    <button type="submit" 
+                            class="btn btn-lg px-4 shadow"
+                            th:classappend="${status == 'REST' ? 'btn-success' : 'btn-secondary'}"
+                            th:disabled="${status != 'REST'}">
+                        休憩戻り
+                    </button>
+                </form>
+
                 <form action="/partner/clock-out" method="post">
-                    <button type="submit" class="btn btn-danger btn-lg px-5 shadow">退勤</button>
+                    <button type="submit" 
+                            class="btn btn-lg px-5 shadow"
+                            th:classappend="${status == 'WORK' ? 'btn-danger' : 'btn-secondary'}"
+                            th:disabled="${status != 'WORK'}">
+                        退勤
+                    </button>
                 </form>
+            </div>
+            
+            <div class="mt-3 text-muted small">
+                現在の状態: <span th:text="${status}"></span>
             </div>
         </div>
 
@@ -40,14 +74,15 @@
             <div class="card-header bg-white fw-bold">自分の履歴</div>
             <table class="table table-hover mb-0">
                 <thead>
-                    <tr><th>日付</th><th>出勤</th><th>退勤</th><th>合計時間</th></tr>
+                    <tr><th>日付</th><th>出勤</th><th>退勤</th><th>休憩開始</th><th>休憩終了</th><th>実働時間</th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="h : ${myHistories}">
                         <td th:text="${#temporals.format(h.startTime, 'yyyy/MM/dd')}"></td>
                         <td th:text="${#temporals.format(h.startTime, 'HH:mm')}"></td>
                         <td th:text="${h.endTime != null ? #temporals.format(h.endTime, 'HH:mm') : '-'}"></td>
-                        
+                        <td th:text="${h.breakStartTime != null ? #temporals.format(h.breakStartTime, 'HH:mm') : '-'}"></td>
+                        <td th:text="${h.breakEndTime != null ? #temporals.format(h.breakEndTime, 'HH:mm') : '-'}"></td>
                         <td class="fw-bold text-success" th:text="${h.workTime}"></td>
                     </tr>
                 </tbody>

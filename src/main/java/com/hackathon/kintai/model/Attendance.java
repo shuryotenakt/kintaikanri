@@ -18,14 +18,23 @@ public class Attendance {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
-    // 分単位での労働時間を返す
+    // 🆕 休憩用の時間を追加
+    private LocalDateTime breakStartTime;
+    private LocalDateTime breakEndTime;
+
+    // 労働時間計算（※簡易的に休憩時間を引くロジックはまだ入れていませんが、まずは表示用）
     public String getWorkTime() {
         if (startTime == null || endTime == null) return "-";
         long minutes = Duration.between(startTime, endTime).toMinutes();
         
-        if (minutes < 0) return "エラー(時間が逆転)";
-        
-        // ◯分 という表示にする（もし1時間以上なら ◯時間◯分）
+        // もし休憩していたら、その分を引く（簡易実装）
+        if (breakStartTime != null && breakEndTime != null) {
+            long breakMinutes = Duration.between(breakStartTime, breakEndTime).toMinutes();
+            minutes = minutes - breakMinutes;
+        }
+
+        if (minutes < 0) return "エラー";
+
         if (minutes < 60) {
             return minutes + "分";
         } else {
