@@ -9,7 +9,10 @@
     <nav class="navbar navbar-dark bg-dark mb-4">
         <div class="container">
             <span class="navbar-brand">管理者ダッシュボード（ログイン中：[[${session.user.name}]]）</span>
-            <a href="/logout" class="btn btn-outline-light btn-sm">ログアウト</a>
+            <div class="d-flex gap-2">
+                <a href="/partner" class="btn btn-outline-warning btn-sm">⬅ 打刻画面へ</a>
+                <a href="/logout" class="btn btn-outline-light btn-sm">ログアウト</a>
+            </div>
         </div>
     </nav>
 
@@ -34,7 +37,21 @@
 
             <div class="col-md-9">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-white fw-bold">全従業員の打刻履歴（修正・反映）</div>
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">打刻履歴管理</span>
+                        
+                        <form action="/admin" method="get" class="d-flex align-items-center">
+                            <select name="userId" class="form-select form-select-sm" style="width: 200px;" onchange="this.form.submit()">
+                                <option value="">全従業員を表示</option>
+                                <option th:each="u : ${userList}" 
+                                        th:value="${u.userId}" 
+                                        th:text="${u.name} + ' (' + ${u.userId} + ')'"
+                                        th:selected="${u.userId == selectedUserId}">
+                                </option>
+                            </select>
+                        </form>
+                    </div>
+
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
@@ -52,21 +69,24 @@
                                         </td>
                                         <td>
                                             <input type="datetime-local" name="startTime" 
-                                                   th:value="${#temporals.format(h.startTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T')}" 
-                                                   class="form-control form-control-sm">
+                                                th:value="${#temporals.format(h.startTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T')}" 
+                                                class="form-control form-control-sm">
                                         </td>
                                         <td>
                                             <input type="datetime-local" name="endTime" 
-                                                   th:value="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T') : ''}" 
-                                                   class="form-control form-control-sm">
+                                                th:value="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T') : ''}" 
+                                                class="form-control form-control-sm">
                                         </td>
                                         <td>
-                                            <span class="badge bg-success" th:text="${h.getWorkTime()}"></span>
+                                            <span class="badge bg-success" th:text="${h.workTime}"></span>
                                         </td>
                                         <td>
                                             <button type="submit" class="btn btn-warning btn-sm">修正保存</button>
                                         </td>
                                     </form>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(histories)}">
+                                    <td colspan="5" class="text-center text-muted py-3">履歴が見つかりません</td>
                                 </tr>
                             </tbody>
                         </table>

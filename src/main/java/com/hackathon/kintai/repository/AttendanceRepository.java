@@ -8,9 +8,12 @@ import java.util.List;
 @Repository
 public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     
-    // 特定のユーザーの履歴を、新しい順に全部持ってくる（パートナー画面用）
+    // 特定のユーザーの履歴（新しい順）
     List<Attendance> findAllByUserIdOrderByStartTimeDesc(String userId);
 
-    // 特定のユーザーの、一番新しい記録を1件だけ持ってくる（退勤打刻の紐付け用）
+    // 特定のユーザーの最新の1件（打刻判定用）
     Attendance findTopByUserIdOrderByStartTimeDesc(String userId);
+
+    // 【追加】全員分の履歴（新しい順）
+    List<Attendance> findAllByOrderByStartTimeDesc();
 }

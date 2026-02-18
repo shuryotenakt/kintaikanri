@@ -8,6 +8,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Controller
 @RequestMapping("/admin")
@@ -17,10 +18,24 @@ public class AdminController {
     @Autowired private AttendanceRepository attendanceRepo;
 
     @GetMapping
-    public String dashboard(Model model) {
-        model.addAttribute("users", userRepo.findAll());
-        model.addAttribute("histories", attendanceRepo.findAll());
-        return "admin_dash"; // 管理者用画面
+    public String dashboard(@RequestParam(required = false) String userId, Model model) {
+        // 1. ドロップダウン用に全ユーザーを取得
+        List<User> userList = userRepo.findAll();
+        model.addAttribute("userList", userList);
+
+        // 2. 履歴の取得（ユーザー指定があるかどうかで分岐）
+        List<Attendance> histories;
+        if (userId != null && !userId.isEmpty()) {
+            // 指定されたユーザーの履歴だけ取得
+            histories = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(userId);
+            model.addAttribute("selectedUserId", userId); // 画面で選択状態を維持するため
+        } else {
+            // 全員の履歴を取得（新しい順）
+            histories = attendanceRepo.findAllByOrderByStartTimeDesc();
+        }
+        
+        model.addAttribute("histories", histories);
+        return "admin_dash"; 
     }
 
     @PostMapping("/register")
@@ -29,7 +44,6 @@ public class AdminController {
         user.setName(name);
         user.setPassword(password);
         user.setRole(role);
-        // IDを自動割り振り（1000 + 現在の人数 + 1）
         user.setUserId(String.valueOf(1000 + userRepo.count() + 1));
         userRepo.save(user);
         return "redirect:/admin";
