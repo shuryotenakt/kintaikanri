@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>管理者ダッシュボード</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-dark bg-dark mb-4">
@@ -17,8 +18,11 @@
     </nav>
 
     <div class="container">
+        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+
         <div class="row">
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <div class="card shadow-sm mb-4">
                     <div class="card-header bg-primary text-white">新規ユーザー登録</div>
                     <div class="card-body">
@@ -33,13 +37,33 @@
                         </form>
                     </div>
                 </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white fw-bold">従業員管理</div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center" th:each="u : ${userList}">
+                            <span>
+                                <span class="fw-bold">[[${u.name}]]</span>
+                                <span class="text-muted small">([[${u.userId}]])</span>
+                                <span th:if="${u.role == 'ADMIN'}" class="badge bg-warning text-dark ms-1">Admin</span>
+                            </span>
+                            <button class="btn btn-outline-danger btn-sm" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#deleteModal"
+                                    th:data-id="${u.id}" 
+                                    th:data-name="${u.name}"
+                                    onclick="setDeleteTarget(this)">
+                                削除
+                            </button>
+                        </li>
+                    </ul>
+                </div>
             </div>
 
-            <div class="col-md-9">
+            <div class="col-md-8">
                 <div class="card shadow-sm">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <span class="fw-bold">打刻履歴管理</span>
-                        
                         <form action="/admin" method="get" class="d-flex align-items-center">
                             <select name="userId" class="form-select form-select-sm" style="width: 200px;" onchange="this.form.submit()">
                                 <option value="">全従業員を表示</option>
@@ -51,12 +75,11 @@
                             </select>
                         </form>
                     </div>
-
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>名前(ID)</th><th>出勤時刻</th><th>退勤時刻</th><th>労働時間</th><th>操作</th>
+                                    <th>名前(ID)</th><th>出勤</th><th>退勤</th><th>時間</th><th>操作</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -67,26 +90,11 @@
                                             <span class="fw-bold">[[${h.userName}]]</span><br>
                                             <small class="text-muted">ID: [[${h.userId}]]</small>
                                         </td>
-                                        <td>
-                                            <input type="datetime-local" name="startTime" 
-                                                th:value="${#temporals.format(h.startTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T')}" 
-                                                class="form-control form-control-sm">
-                                        </td>
-                                        <td>
-                                            <input type="datetime-local" name="endTime" 
-                                                th:value="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T') : ''}" 
-                                                class="form-control form-control-sm">
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-success" th:text="${h.workTime}"></span>
-                                        </td>
-                                        <td>
-                                            <button type="submit" class="btn btn-warning btn-sm">修正保存</button>
-                                        </td>
+                                        <td><input type="datetime-local" name="startTime" th:value="${#temporals.format(h.startTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T')}" class="form-control form-control-sm" style="width:140px;"></td>
+                                        <td><input type="datetime-local" name="endTime" th:value="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T') : ''}" class="form-control form-control-sm" style="width:140px;"></td>
+                                        <td><span class="badge bg-success" th:text="${h.workTime}"></span></td>
+                                        <td><button type="submit" class="btn btn-warning btn-sm">修正</button></td>
                                     </form>
-                                </tr>
-                                <tr th:if="${#lists.isEmpty(histories)}">
-                                    <td colspan="5" class="text-center text-muted py-3">履歴が見つかりません</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -95,5 +103,44 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">ユーザー削除の確認</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>本当にユーザー <strong id="deleteTargetName"></strong> を削除しますか？<br>
+                    <span class="text-danger small">※このユーザーの勤怠データもすべて削除されます。</span></p>
+                    
+                    <form action="/admin/delete-user" method="post">
+                        <input type="hidden" name="targetId" id="deleteTargetId">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">管理者のパスワードを入力</label>
+                            <input type="password" name="adminPassword" class="form-control" required>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                            <button type="submit" class="btn btn-danger">削除実行</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function setDeleteTarget(button) {
+            // 押されたボタンからデータ(IDと名前)を取り出す
+            var id = button.getAttribute('data-id');
+            var name = button.getAttribute('data-name');
+            
+            // モーダルの中身を書き換える
+            document.getElementById('deleteTargetId').value = id;
+            document.getElementById('deleteTargetName').textContent = name;
+        }
+    </script>
 </body>
 </html>

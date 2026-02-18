@@ -2,10 +2,12 @@ package com.hackathon.kintai.controller;
 
 import com.hackathon.kintai.model.*;
 import com.hackathon.kintai.repository.*;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,18 +21,14 @@ public class AdminController {
 
     @GetMapping
     public String dashboard(@RequestParam(required = false) String userId, Model model) {
-        // 1. ドロップダウン用に全ユーザーを取得
         List<User> userList = userRepo.findAll();
         model.addAttribute("userList", userList);
 
-        // 2. 履歴の取得（ユーザー指定があるかどうかで分岐）
         List<Attendance> histories;
         if (userId != null && !userId.isEmpty()) {
-            // 指定されたユーザーの履歴だけ取得
             histories = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(userId);
-            model.addAttribute("selectedUserId", userId); // 画面で選択状態を維持するため
+            model.addAttribute("selectedUserId", userId);
         } else {
-            // 全員の履歴を取得（新しい順）
             histories = attendanceRepo.findAllByOrderByStartTimeDesc();
         }
         
@@ -55,6 +53,32 @@ public class AdminController {
         a.setStartTime(LocalDateTime.parse(startTime));
         if (!endTime.isEmpty()) a.setEndTime(LocalDateTime.parse(endTime));
         attendanceRepo.save(a);
+        return "redirect:/admin";
+    }
+
+    // 🆕 ユーザー削除機能
+    @PostMapping("/delete-user")
+    public String deleteUser(@RequestParam Long targetId, @RequestParam String adminPassword, HttpSession session, RedirectAttributes redirectAttributes) {
+        User admin = (User) session.getAttribute("user");
+        
+        // 1. 管理者のパスワードチェック
+        if (!admin.getPassword().equals(adminPassword)) {
+            redirectAttributes.addFlashAttribute("error", "パスワードが間違っています。削除できませんでした。");
+            return "redirect:/admin";
+        }
+
+        // 2. 削除対象のユーザーを取得
+        User targetUser = userRepo.findById(targetId).orElse(null);
+        if (targetUser != null) {
+            // 3. そのユーザーの勤怠データを全て消す（これをしないとゴミデータが残る）
+            List<Attendance> userAttendances = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(targetUser.getUserId());
+            attendanceRepo.deleteAll(userAttendances);
+
+            // 4. ユーザー本体を削除
+            userRepo.delete(targetUser);
+            redirectAttributes.addFlashAttribute("success", "ユーザー「" + targetUser.getName() + "」を削除しました。");
+        }
+
         return "redirect:/admin";
     }
 }
