@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>管理者ダッシュボード</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container">
+            <span class="navbar-brand">管理者ダッシュボード（ログイン中：[[${session.user.name}]]）</span>
+            <a href="/logout" class="btn btn-outline-light btn-sm">ログアウト</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white">新規ユーザー登録</div>
+                    <div class="card-body">
+                        <form action="/admin/register" method="post">
+                            <input type="text" name="name" class="form-control mb-2" placeholder="氏名" required>
+                            <input type="password" name="password" class="form-control mb-2" placeholder="パスワード" required>
+                            <select name="role" class="form-select mb-3">
+                                <option value="PARTNER">パートナー社員</option>
+                                <option value="ADMIN">管理者</option>
+                            </select>
+                            <button type="submit" class="btn btn-primary w-100">登録</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white fw-bold">全従業員の打刻履歴（修正・反映）</div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>名前(ID)</th><th>出勤時刻</th><th>退勤時刻</th><th>労働時間</th><th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="h : ${histories}">
+                                    <form action="/admin/edit" method="post">
+                                        <input type="hidden" name="id" th:value="${h.id}">
+                                        <td>
+                                            <span class="fw-bold">[[${h.userName}]]</span><br>
+                                            <small class="text-muted">ID: [[${h.userId}]]</small>
+                                        </td>
+                                        <td>
+                                            <input type="datetime-local" name="startTime" 
+                                                   th:value="${#temporals.format(h.startTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T')}" 
+                                                   class="form-control form-control-sm">
+                                        </td>
+                                        <td>
+                                            <input type="datetime-local" name="endTime" 
+                                                   th:value="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy-MM-dd-HH:mm').replace('-', 'T') : ''}" 
+                                                   class="form-control form-control-sm">
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success" th:text="${h.getWorkTime()}"></span>
+                                        </td>
+                                        <td>
+                                            <button type="submit" class="btn btn-warning btn-sm">修正保存</button>
+                                        </td>
+                                    </form>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
