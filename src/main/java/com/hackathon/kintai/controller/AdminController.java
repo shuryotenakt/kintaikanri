@@ -36,11 +36,9 @@ public class AdminController {
         LocalDateTime endDatetime = null;
 
         if (startDate != null && !startDate.isEmpty() && endDate != null && !endDate.isEmpty()) {
-            // 範囲指定が優先
             startDatetime = LocalDate.parse(startDate).atStartOfDay();
             endDatetime = LocalDate.parse(endDate).plusDays(1).atStartOfDay().minusNanos(1);
         } else if (month != null && !month.isEmpty()) {
-            // 月指定の場合、その月の1日から月末までを計算
             YearMonth ym = YearMonth.parse(month);
             startDatetime = ym.atDay(1).atStartOfDay();
             endDatetime = ym.atEndOfMonth().plusDays(1).atStartOfDay().minusNanos(1);
@@ -103,6 +101,43 @@ public class AdminController {
             attendanceRepo.deleteAll(userAttendances);
             userRepo.delete(targetUser);
             redirectAttributes.addFlashAttribute("success", "ユーザー「" + targetUser.getName() + "」を削除しました。");
+        }
+        return "redirect:/admin";
+    }
+
+    // 🆕 1. 新規打刻の作成（登録モード）
+    @PostMapping("/create-attendance")
+    public String createAttendance(@RequestParam String targetUserId, 
+                                   @RequestParam String startTime, 
+                                   @RequestParam(required = false) String endTime, 
+                                   RedirectAttributes redirectAttributes) {
+        // 対象ユーザーの検索
+        User targetUser = userRepo.findAll().stream()
+                .filter(u -> u.getUserId().equals(targetUserId))
+                .findFirst().orElse(null);
+
+        if (targetUser != null) {
+            Attendance a = new Attendance();
+            a.setUserId(targetUser.getUserId());
+            a.setUserName(targetUser.getName());
+            a.setStartTime(LocalDateTime.parse(startTime));
+            if (endTime != null && !endTime.isEmpty()) {
+                a.setEndTime(LocalDateTime.parse(endTime));
+            }
+            attendanceRepo.save(a);
+            redirectAttributes.addFlashAttribute("success", targetUser.getName() + " の打刻を新規登録しました。");
+        }
+        return "redirect:/admin";
+    }
+
+    // 🆕 2. 打刻履歴の複数削除（削除モード）
+    @PostMapping("/delete-attendances")
+    public String deleteAttendances(@RequestParam(required = false) List<Long> attendanceIds, RedirectAttributes redirectAttributes) {
+        if (attendanceIds != null && !attendanceIds.isEmpty()) {
+            attendanceRepo.deleteAllById(attendanceIds);
+            redirectAttributes.addFlashAttribute("success", attendanceIds.size() + "件の打刻履歴を削除しました。");
+        } else {
+            redirectAttributes.addFlashAttribute("error", "削除する項目が選択されていません。");
         }
         return "redirect:/admin";
     }

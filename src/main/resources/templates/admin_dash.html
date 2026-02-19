@@ -13,6 +13,9 @@
             padding: 8px;
             display: inline-block;
         }
+        .delete-col {
+            transition: all 0.3s;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -74,48 +77,65 @@
                     <div class="card-header bg-white">
                         <div class="fw-bold mb-2">打刻履歴管理</div>
                         <form action="/admin" method="get" id="filterForm" class="d-flex flex-wrap align-items-center gap-3 bg-light p-2 rounded border">
-                            
                             <div class="d-flex align-items-center gap-1">
                                 <span class="small fw-bold text-muted text-nowrap">従業員:</span>
                                 <select name="userId" class="form-select form-select-sm" style="width: 150px;" onchange="document.getElementById('filterForm').submit()">
                                     <option value="">全員を表示</option>
-                                    <option th:each="u : ${userList}" 
-                                            th:value="${u.userId}" 
-                                            th:text="${u.name} + ' (' + ${u.userId} + ')'"
-                                            th:selected="${u.userId == selectedUserId}">
-                                    </option>
+                                    <option th:each="u : ${userList}" th:value="${u.userId}" th:text="${u.name} + ' (' + ${u.userId} + ')'" th:selected="${u.userId == selectedUserId}"></option>
                                 </select>
                             </div>
-
                             <div class="d-flex align-items-center gap-1 border-start ps-3">
                                 <span class="small fw-bold text-muted text-nowrap">月:</span>
                                 <input type="month" name="month" id="monthInput" th:value="${selectedMonth}" class="form-control form-control-sm" onchange="onMonthChange()">
                             </div>
-
                             <div class="d-flex align-items-center gap-1 border-start ps-3">
                                 <span class="small fw-bold text-muted text-nowrap">日付:</span>
                                 <input type="date" name="startDate" id="startDateInput" th:value="${selectedStartDate}" class="form-control form-control-sm" onchange="onDateChange()">
                                 <span class="text-muted">～</span>
                                 <input type="date" name="endDate" id="endDateInput" th:value="${selectedEndDate}" class="form-control form-control-sm" onchange="onDateChange()">
                             </div>
-
                             <div class="ms-auto">
                                 <a href="/admin" class="btn btn-outline-secondary btn-sm">クリア</a>
                             </div>
                         </form>
                     </div>
+
+                    <div class="card-body border-bottom py-2 bg-white d-flex justify-content-between align-items-center">
+                        <div>
+                            <button type="button" class="btn btn-success btn-sm fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#createAttendanceModal">
+                                ➕ 新規打刻登録
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm fw-bold shadow-sm ms-2" id="deleteModeBtn" onclick="toggleDeleteMode()">
+                                🗑️ 削除モードON
+                            </button>
+                        </div>
+                        <div>
+                            <button type="submit" form="deleteForm" id="executeDeleteBtn" class="btn btn-danger btn-sm fw-bold shadow-sm d-none">
+                                チェックした項目を削除
+                            </button>
+                        </div>
+                    </div>
                     
+                    <form id="deleteForm" action="/admin/delete-attendances" method="post"></form>
+
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 20%;">名前(ID)</th>
+                                    <th class="delete-col d-none text-center" style="width: 5%;">
+                                        <input type="checkbox" id="selectAll" class="form-check-input" onclick="toggleAllCheckboxes(this)">
+                                    </th>
+                                    <th style="width: 15%;">名前(ID)</th>
                                     <th style="width: 65%;">勤務実績 / 修正フォーム</th>
                                     <th style="width: 15%;">労働時間</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr th:each="h : ${histories}">
+                                    <td class="delete-col d-none text-center">
+                                        <input class="form-check-input attendance-checkbox" type="checkbox" name="attendanceIds" th:value="${h.id}" form="deleteForm">
+                                    </td>
+
                                     <td>
                                         <span class="fw-bold">[[${h.userName}]]</span><br>
                                         <small class="text-muted">ID: [[${h.userId}]]</small>
@@ -152,11 +172,45 @@
                                     </td>
                                 </tr>
                                 <tr th:if="${#lists.isEmpty(histories)}">
-                                    <td colspan="3" class="text-center text-muted py-4">履歴が見つかりません</td>
+                                    <td colspan="4" class="text-center text-muted py-4">履歴が見つかりません</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="createAttendanceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">新規打刻の登録</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="/admin/create-attendance" method="post">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">対象ユーザー</label>
+                            <select name="targetUserId" class="form-select" required>
+                                <option value="" disabled selected>選択してください</option>
+                                <option th:each="u : ${userList}" th:value="${u.userId}" th:text="${u.name} + ' (' + ${u.userId} + ')'"></option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">出勤時間</label>
+                            <input type="datetime-local" name="startTime" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">退勤時間（未退勤の場合は空欄）</label>
+                            <input type="datetime-local" name="endTime" class="form-control">
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                            <button type="submit" class="btn btn-success">登録する</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -190,6 +244,7 @@
     </div>
 
     <script>
+        // ユーザー削除モーダル用
         function setDeleteTarget(button) {
             var id = button.getAttribute('data-id');
             var name = button.getAttribute('data-name');
@@ -197,24 +252,54 @@
             document.getElementById('deleteTargetName').textContent = name;
         }
 
-        // 🆕 検索フォームの排他制御スクリプト
+        // 検索排他制御
         function onMonthChange() {
-            // 月が選ばれたら、期間指定の箱を空にしてから検索実行
             document.getElementById('startDateInput').value = '';
             document.getElementById('endDateInput').value = '';
             document.getElementById('filterForm').submit();
         }
 
         function onDateChange() {
-            // 期間が選ばれたら、月指定の箱を空にする
             document.getElementById('monthInput').value = '';
-            
-            // 開始日と終了日が両方埋まった時だけ自動で検索実行
             var start = document.getElementById('startDateInput').value;
             var end = document.getElementById('endDateInput').value;
             if (start && end) {
                 document.getElementById('filterForm').submit();
             }
+        }
+
+        // 🆕 削除モードの切り替えスクリプト
+        let isDeleteMode = false;
+        function toggleDeleteMode() {
+            isDeleteMode = !isDeleteMode;
+            const cols = document.querySelectorAll('.delete-col');
+            const execBtn = document.getElementById('executeDeleteBtn');
+            const modeBtn = document.getElementById('deleteModeBtn');
+
+            // チェックボックス列と削除実行ボタンの表示/非表示
+            cols.forEach(col => col.classList.toggle('d-none', !isDeleteMode));
+            execBtn.classList.toggle('d-none', !isDeleteMode);
+
+            // ボタンの見た目を変える
+            if (isDeleteMode) {
+                modeBtn.classList.remove('btn-outline-danger');
+                modeBtn.classList.add('btn-danger');
+                modeBtn.textContent = '❌ 削除モードOFF';
+            } else {
+                modeBtn.classList.remove('btn-danger');
+                modeBtn.classList.add('btn-outline-danger');
+                modeBtn.textContent = '🗑️ 削除モードON';
+                
+                // モードOFF時にチェックをすべて外す
+                document.querySelectorAll('.attendance-checkbox').forEach(cb => cb.checked = false);
+                document.getElementById('selectAll').checked = false;
+            }
+        }
+
+        // 🆕 全選択チェックボックスの動き
+        function toggleAllCheckboxes(source) {
+            const checkboxes = document.querySelectorAll('.attendance-checkbox');
+            checkboxes.forEach(cb => cb.checked = source.checked);
         }
     </script>
 </body>
