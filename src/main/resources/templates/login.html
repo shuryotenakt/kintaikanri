@@ -77,14 +77,6 @@
         .forgot-link:hover {
             color: #000;
         }
-        .admin-hint {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            font-size: 0.75rem;
-            color: #aaa;
-            text-align: center;
-        }
     </style>
 </head>
 <body>
@@ -119,7 +111,7 @@
                     </div>
                     <input type="password" name="password" class="form-control" placeholder="パスワード" required>
                 </div>
-                              
+
                 <button type="submit" class="btn btn-primary w-100">ログイン</button>
             </form>
 
@@ -127,9 +119,6 @@
                 <a href="/forgot-password" class="forgot-link">パスワードを忘れた場合はこちら</a>
             </div>
 
-            <div class="admin-hint">
-                ※初期管理者は <strong>ID:admin / Pass:admin123</strong>
-            </div>
         </div>
     </div>
 
@@ -144,11 +133,6 @@
                 });
             }
         });
-   
-   // ブラウザやタブを閉じる、または更新する直前に実行
-window.onbeforeunload = function() {
-    // ログアウト用URLを「バックグラウンド」で実行する（ブラウザが閉じても一瞬だけ通信する）
-    navigator.sendBeacon('/logout');
-};</script>
+    </script>
 </body>
 </html>

@@ -23,10 +23,10 @@
             top: 0;
             left: 100%;
             margin-top: -1px;
-            display: none; /* 通常は非表示 */
+            display: none;
         }
         .dropdown-submenu:hover > .dropdown-menu {
-            display: block; /* ホバーで表示 */
+            display: block;
         }
         #live-clock { font-family: 'Courier New', monospace; }
     </style>
@@ -48,8 +48,8 @@
                 <ul class="navbar-nav me-auto ms-lg-3">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle btn btn-nav-custom btn-sm px-3 fw-bold mt-1" 
-                            href="#" role="button" data-bs-toggle="dropdown">
-                            📁 メニュー
+                           href="#" role="button" data-bs-toggle="dropdown">
+                           📁 メニュー
                         </a>
                         <ul class="dropdown-menu shadow">
                             <li class="dropdown-submenu">
@@ -71,8 +71,8 @@
                 <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-3">
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle btn btn-nav-custom btn-sm px-3 fw-bold mt-1" 
-                            href="#" role="button" data-bs-toggle="dropdown">
-                            ⚙️ 設定
+                           href="#" role="button" data-bs-toggle="dropdown">
+                           ⚙️ 設定
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end shadow">
                             <li><h6 class="dropdown-header">アカウント管理</h6></li>
@@ -96,10 +96,18 @@
             <h2 class="mb-2 fw-bold text-dark">打刻パネル</h2>
             <div class="h3 text-primary fw-bold mb-4" id="live-clock">00:00:00</div>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
-                <form action="/partner/clock-in" method="post"><button type="submit" class="btn btn-lg px-5 shadow-sm fw-bold" th:classappend="${status == 'OFF' ? 'btn-primary' : 'btn-secondary opacity-50'}" th:disabled="${status != 'OFF'}">出勤</button></form>
-                <form action="/partner/break-start" method="post"><button type="submit" class="btn btn-lg px-4 shadow-sm fw-bold text-white" th:classappend="${status == 'WORK' ? 'btn-warning' : 'btn-secondary opacity-50'}" th:disabled="${status != 'WORK'}">休憩入り</button></form>
-                <form action="/partner/break-end" method="post"><button type="submit" class="btn btn-lg px-4 shadow-sm fw-bold" th:classappend="${status == 'REST' ? 'btn-success' : 'btn-secondary opacity-50'}" th:disabled="${status != 'REST'}">休憩戻り</button></form>
-                <form action="/partner/clock-out" method="post"><button type="submit" class="btn btn-lg px-5 shadow-sm fw-bold" th:classappend="${status == 'WORK' ? 'btn-danger' : 'btn-secondary opacity-50'}" th:disabled="${status != 'WORK'}">退勤</button></form>
+                <form action="/partner/clock-in" method="post" onsubmit="return singleSubmit(this)">
+                    <button type="submit" class="btn btn-lg px-5 shadow-sm fw-bold" th:classappend="${status == 'OFF' ? 'btn-primary' : 'btn-secondary opacity-50'}" th:disabled="${status != 'OFF'}">出勤</button>
+                </form>
+                <form action="/partner/break-start" method="post" onsubmit="return singleSubmit(this)">
+                    <button type="submit" class="btn btn-lg px-4 shadow-sm fw-bold text-white" th:classappend="${status == 'WORK' ? 'btn-warning' : 'btn-secondary opacity-50'}" th:disabled="${status != 'WORK'}">休憩入り</button>
+                </form>
+                <form action="/partner/break-end" method="post" onsubmit="return singleSubmit(this)">
+                    <button type="submit" class="btn btn-lg px-4 shadow-sm fw-bold" th:classappend="${status == 'REST' ? 'btn-success' : 'btn-secondary opacity-50'}" th:disabled="${status != 'REST'}">休憩戻り</button>
+                </form>
+                <form action="/partner/clock-out" method="post" onsubmit="return singleSubmit(this)">
+                    <button type="submit" class="btn btn-lg px-5 shadow-sm fw-bold" th:classappend="${status == 'WORK' ? 'btn-danger' : 'btn-secondary opacity-50'}" th:disabled="${status != 'WORK'}">退勤</button>
+                </form>
             </div>
         </div>
 
@@ -133,7 +141,7 @@
     <div class="modal fade" id="pwModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content border-0 shadow">
-                <form action="/partner/password-reset" method="post">
+                <form action="/partner/password-reset" method="post" onsubmit="return singleSubmit(this)">
                     <div class="modal-header bg-dark text-white"><h5 class="modal-title fs-6">パスワード更新</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body py-4"><input type="password" name="newPassword" class="form-control" required minlength="4"></div>
                     <div class="modal-footer bg-light"><button type="submit" class="btn btn-sm btn-primary">保存</button></div>
@@ -149,12 +157,21 @@
         }
         setInterval(updateClock, 1000); updateClock();
     </script>
+
     <script>
-        // ブラウザの×ボタンや、タブを閉じる直前に実行される
-        window.addEventListener('beforeunload', function (e) {
-            // ログアウト用URLを「バックグラウンド」で実行する（画面が閉じても一瞬だけ通信が飛ぶ）
-            navigator.sendBeacon('/logout');
-        });
+        // 🌟 ボタン連打による二重送信（ダブルサブミット）を防止する処理
+        function singleSubmit(form) {
+            // 押されたフォームの中にある送信ボタンを探す
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) {
+                // ボタンを押せない状態（無効化）にする
+                btn.disabled = true;
+                // ついでにボタンの文字を変えてあげると親切！
+                btn.textContent = '処理中...'; 
+            }
+            return true;
+        }
     </script>
+
 </body>
 </html>

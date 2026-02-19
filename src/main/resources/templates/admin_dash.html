@@ -321,12 +321,6 @@
             checkboxes.forEach(cb => cb.checked = source.checked);
         }
     </script>
-    <script>
-        // ブラウザの×ボタンや、タブを閉じる直前に実行される
-        window.addEventListener('beforeunload', function (e) {
-            // ログアウト用URLを「バックグラウンド」で実行する（画面が閉じても一瞬だけ通信が飛ぶ）
-            navigator.sendBeacon('/logout');
-        });
-    </script>
+
 </body>
 </html>
