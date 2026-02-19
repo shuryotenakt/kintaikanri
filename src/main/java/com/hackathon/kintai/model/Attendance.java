@@ -18,27 +18,46 @@ public class Attendance {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
-    // 🆕 休憩用の時間を追加
+    // パートナー画面の打刻で記録される休憩時間
     private LocalDateTime breakStartTime;
     private LocalDateTime breakEndTime;
 
-    // 労働時間計算（※簡易的に休憩時間を引くロジックはまだ入れていませんが、まずは表示用）
-    public String getWorkTime() {
-        if (startTime == null || endTime == null) return "-";
-        long minutes = Duration.between(startTime, endTime).toMinutes();
-        
-        // もし休憩していたら、その分を引く（簡易実装）
-        if (breakStartTime != null && breakEndTime != null) {
-            long breakMinutes = Duration.between(breakStartTime, breakEndTime).toMinutes();
-            minutes = minutes - breakMinutes;
+    // 🆕 管理者が手動で修正・入力した休憩時間（分）
+    private Integer breakMinutes;
+
+    // 内部計算用の「最終的な休憩時間（分）」を取得
+    public int getCalculatedBreakMinutes() {
+        if (breakMinutes != null) {
+            return breakMinutes; // 手動修正があれば優先
         }
+        if (breakStartTime != null && breakEndTime != null) {
+            return (int) Duration.between(breakStartTime, breakEndTime).toMinutes(); // 打刻から計算
+        }
+        return 0; // 休憩なし
+    }
 
-        if (minutes < 0) return "エラー";
+    // 🆕 画面表示用の休憩時間（例：1時間0分、45分など）
+    public String getBreakTimeDisplay() {
+        int mins = getCalculatedBreakMinutes();
+        if (mins == 0) return "0分";
+        if (mins < 60) return mins + "分";
+        return (mins / 60) + "時間" + (mins % 60) + "分";
+    }
 
-        if (minutes < 60) {
-            return minutes + "分";
+    // 実労働時間の計算
+    public String getWorkTime() {
+        if (startTime == null || endTime == null) {
+            return "-";
+        }
+        long totalMinutes = Duration.between(startTime, endTime).toMinutes();
+        long actualMinutes = totalMinutes - getCalculatedBreakMinutes();
+
+        if (actualMinutes < 0) return "エラー(時間不整合)";
+
+        if (actualMinutes < 60) {
+            return actualMinutes + "分";
         } else {
-            return (minutes / 60) + "時間" + (minutes % 60) + "分";
+            return (actualMinutes / 60) + "時間" + (actualMinutes % 60) + "分";
         }
     }
 }

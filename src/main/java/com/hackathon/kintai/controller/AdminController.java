@@ -9,6 +9,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -21,7 +22,6 @@ public class AdminController {
     @Autowired private UserRepository userRepo;
     @Autowired private AttendanceRepository attendanceRepo;
 
-    // 絞り込み状態を次の画面に引き継ぐための便利メソッド
     private void keepFilters(RedirectAttributes attrs, String userId, String month, String start, String end) {
         if (userId != null && !userId.isEmpty()) attrs.addAttribute("userId", userId);
         if (month != null && !month.isEmpty()) attrs.addAttribute("month", month);
@@ -75,49 +75,52 @@ public class AdminController {
 
     @PostMapping("/register")
     public String register(@RequestParam String name, @RequestParam String password, @RequestParam String role,
-                           @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
-                           @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
-                           RedirectAttributes redirectAttributes) {
+                            @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
+                            @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
+                            RedirectAttributes redirectAttributes) {
         User user = new User();
         user.setName(name);
         user.setPassword(password);
         user.setRole(role);
         user.setUserId(String.valueOf(1000 + userRepo.count() + 1));
         userRepo.save(user);
-        
         keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
         return "redirect:/admin";
     }
 
     @PostMapping("/edit")
-    public String edit(@RequestParam Long id, @RequestParam String startTime, @RequestParam String endTime,
-                       @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
-                       @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
-                       RedirectAttributes redirectAttributes) {
+    public String edit(@RequestParam Long id, @RequestParam String startTime, @RequestParam String endTime, 
+                        @RequestParam(required = false, defaultValue = "0") Integer breakMinutes, // 🆕 休憩時間を受け取る
+                        @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
+                        @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
+                        RedirectAttributes redirectAttributes) {
         
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime start = LocalDateTime.parse(startTime);
         LocalDateTime end = null;
 
-        // 🛑 未来の出勤時間をブロック
         if (start.isAfter(now)) {
             redirectAttributes.addFlashAttribute("error", "【エラー】未来の日時は登録・修正できません。");
             keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
             return "redirect:/admin";
         }
 
-        // 🛑 強固なエラーチェック（退勤）
         if (!endTime.isEmpty()) {
             end = LocalDateTime.parse(endTime);
-            // 未来の退勤時間をブロック
             if (end.isAfter(now)) {
                 redirectAttributes.addFlashAttribute("error", "【エラー】未来の日時は登録・修正できません。");
                 keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
                 return "redirect:/admin";
             }
-            // 過去への矛盾をブロック
             if (end.isBefore(start)) {
                 redirectAttributes.addFlashAttribute("error", "【エラー】退勤時間が、出勤時間より過去に設定されています。修正できませんでした。");
+                keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
+                return "redirect:/admin";
+            }
+            // 🛑 休憩時間のオーバーをガード！
+            long totalMinutes = Duration.between(start, end).toMinutes();
+            if (breakMinutes > totalMinutes) {
+                redirectAttributes.addFlashAttribute("error", "【エラー】休憩時間が勤務時間（拘束時間）をオーバーしています。");
                 keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
                 return "redirect:/admin";
             }
@@ -126,6 +129,7 @@ public class AdminController {
         Attendance a = attendanceRepo.findById(id).orElseThrow();
         a.setStartTime(start);
         a.setEndTime(end);
+        a.setBreakMinutes(breakMinutes); // 🆕 休憩時間を保存
         attendanceRepo.save(a);
         
         redirectAttributes.addFlashAttribute("success", "打刻を上書き保存しました。");
@@ -157,33 +161,37 @@ public class AdminController {
 
     @PostMapping("/create-attendance")
     public String createAttendance(@RequestParam String targetUserId, @RequestParam String startTime, @RequestParam(required = false) String endTime, 
-                                   @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
-                                   @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
-                                   RedirectAttributes redirectAttributes) {
+                                    @RequestParam(required = false, defaultValue = "0") Integer breakMinutes, // 🆕 休憩時間を受け取る
+                                    @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
+                                    @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
+                                    RedirectAttributes redirectAttributes) {
         
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime start = LocalDateTime.parse(startTime);
         LocalDateTime end = null;
 
-        // 🛑 未来の出勤時間をブロック
         if (start.isAfter(now)) {
             redirectAttributes.addFlashAttribute("error", "【エラー】未来の日時は登録できません。");
             keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
             return "redirect:/admin";
         }
 
-        // 🛑 強固なエラーチェック（退勤）
         if (endTime != null && !endTime.isEmpty()) {
             end = LocalDateTime.parse(endTime);
-            // 未来の退勤時間をブロック
             if (end.isAfter(now)) {
                 redirectAttributes.addFlashAttribute("error", "【エラー】未来の日時は登録できません。");
                 keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
                 return "redirect:/admin";
             }
-            // 過去への矛盾をブロック
             if (end.isBefore(start)) {
                 redirectAttributes.addFlashAttribute("error", "【エラー】退勤時間が、出勤時間より過去に設定されています。登録できませんでした。");
+                keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
+                return "redirect:/admin";
+            }
+            // 🛑 休憩時間のオーバーをガード！
+            long totalMinutes = Duration.between(start, end).toMinutes();
+            if (breakMinutes > totalMinutes) {
+                redirectAttributes.addFlashAttribute("error", "【エラー】休憩時間が勤務時間（拘束時間）をオーバーしています。");
                 keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
                 return "redirect:/admin";
             }
@@ -197,6 +205,7 @@ public class AdminController {
             a.setUserName(targetUser.getName());
             a.setStartTime(start);
             a.setEndTime(end);
+            a.setBreakMinutes(breakMinutes); // 🆕 休憩時間を保存
             attendanceRepo.save(a);
             redirectAttributes.addFlashAttribute("success", targetUser.getName() + " の打刻を新規登録しました。");
         }
