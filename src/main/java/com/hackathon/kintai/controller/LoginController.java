@@ -21,15 +21,23 @@ public class LoginController {
 
     @PostMapping("/login")
     public String login(@RequestParam String loginInfo, @RequestParam String password, HttpSession session) {
-        User user = userRepo.findByUserIdAndPassword(loginInfo, password)
-                .orElseGet(() -> userRepo.findByNameAndPassword(loginInfo, password).orElse(null));
+        // 1. まずはIDまたは名前でユーザーを探す
+        User user = userRepo.findByUserId(loginInfo)
+                .orElseGet(() -> userRepo.findByName(loginInfo).orElse(null));
 
-        if (user != null) {
-            session.setAttribute("user", user);
-            // 👇 ここを変更！ 管理者(ADMIN)でも、まずは打刻画面(/partner)へ飛ばす
-            return "redirect:/partner";
+        // 2. ユーザーが存在しない場合
+        if (user == null) {
+            return "redirect:/?error=user_not_found";
         }
-        return "redirect:/?error";
+
+        // 3. パスワードが一致しない場合
+        if (!user.getPassword().equals(password)) {
+            return "redirect:/?error=invalid_password";
+        }
+
+        // 4. 成功
+        session.setAttribute("user", user);
+        return "redirect:/partner";
     }
 
     @GetMapping("/logout")
@@ -42,33 +50,38 @@ public class LoginController {
     public String forgotPasswordPage() {
         return "forgot-password";
     }
-@PostMapping("/reset-password")
-@Transactional
-public String resetPassword(@RequestParam String userId, 
-                            @RequestParam String name, 
-                            @RequestParam String newPassword,
-                        @RequestParam String confirmPassword) { // 引数を追加
 
-    // 1. パスワードの一致チェック
-    if (!newPassword.equals(confirmPassword)) {
-        return "redirect:/forgot-password?error=password_mismatch";
-    }
-    
-    // IDと名前だけでユーザーを特定する（パスワードは無視する）
-    User user = userRepo.findByUserIdAndName(userId, name).orElse(null);
+    @PostMapping("/reset-password")
+    @Transactional
+    public String resetPassword(@RequestParam String userId, 
+                                @RequestParam String name, 
+                                @RequestParam String newPassword,
+                                @RequestParam String confirmPassword) {
 
-    if (user != null) {
+        // パスワード一致チェック
+        if (!newPassword.equals(confirmPassword)) {
+            return "redirect:/forgot-password?error=password_mismatch";
+        }
 
-        // 現在のパスワードと同じかチェック
+        // ユーザーID存在チェック
+        User user = userRepo.findByUserId(userId).orElse(null);
+        if (user == null) {
+            return "redirect:/forgot-password?error=user_not_found";
+        }
+
+        // 名前一致チェック
+        if (!user.getName().equals(name)) {
+            return "redirect:/forgot-password?error=name_mismatch";
+        }
+
+        // 前と同じパスワードかチェック
         if (newPassword.equals(user.getPassword())) {
             return "redirect:/forgot-password?error=same_as_old";
         }
+
+        // 更新実行
         user.setPassword(newPassword);
-        userRepo.save(user); // これで実際にDBが更新されます
+        userRepo.save(user);
         return "redirect:/?reset_success";
     }
-    
-    return "redirect:/forgot-password?error";
-}
-
 }
