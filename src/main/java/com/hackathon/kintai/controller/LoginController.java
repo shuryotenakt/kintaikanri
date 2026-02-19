@@ -7,17 +7,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 @Controller
 public class LoginController {
 
     @Autowired
     private UserRepository userRepo;
 
-    // ログイン中のユーザーを管理するマップ
-    public static final Map<String, String> loginUserMap = new ConcurrentHashMap<>();
+    // ❌ ConcurrentHashMap はもう使わないので削除！
 
     @GetMapping("/")
     public String loginPage() {
@@ -26,45 +22,20 @@ public class LoginController {
 
     @PostMapping("/login")
     public String login(@RequestParam String loginInfo, @RequestParam String password, HttpSession session) {
-        // ユーザー検索
         User user = userRepo.findByUserId(loginInfo)
                 .orElseGet(() -> userRepo.findByName(loginInfo).orElse(null));
 
-        // 認証チェック
         if (user == null || !user.getPassword().equals(password)) {
             return "redirect:/?error=invalid_password";
         }
 
-        String userId = user.getUserId();
         String currentSessionId = session.getId();
 
-        // --- ログ出力（ここをコンソールで確認してください） ---
-        System.out.println("====== ログインチェック開始 ======");
-        System.out.println("ログイン試行ユーザー: " + userId);
-        System.out.println("自分のセッションID: " + currentSessionId);
-        System.out.println("現在のマップの状態: " + loginUserMap);
+        // 🌟 【後勝ち仕様】新しい端末でログインしたら、DBのセッションIDを上書きする！
+        user.setCurrentSessionId(currentSessionId);
+        userRepo.save(user); // DBに直接書き込む
 
-        // 1. 二重ログインチェック
-        if (loginUserMap.containsKey(userId)) {
-            String activeId = loginUserMap.get(userId);
-            System.out.println("既にマップにあるセッションID: " + activeId);
-
-            if (!activeId.equals(currentSessionId)) {
-                System.out.println("【結果】別人なので拒否します！");
-                return "redirect:/?error=already_logged_in";
-            }
-            System.out.println("【結果】本人（同セッション）なので通します。");
-        } else {
-            System.out.println("【結果】新規ログインとして許可します。");
-        }
-
-        // 2. 成功処理：マップに保存
-        loginUserMap.put(userId, currentSessionId);
         session.setAttribute("user", user);
-        
-        System.out.println("保存後のマップ: " + loginUserMap);
-        System.out.println("====== ログインチェック終了 ======");
-        
         return "redirect:/partner";
     }
 
@@ -72,7 +43,12 @@ public class LoginController {
     public String logout(HttpSession session) {
         User user = (User) session.getAttribute("user");
         if (user != null) {
-            loginUserMap.remove(user.getUserId());
+            // DBから最新のユーザー情報を取ってきて、自分のセッションIDなら空にする
+            User dbUser = userRepo.findById(user.getId()).orElse(null);
+            if (dbUser != null && session.getId().equals(dbUser.getCurrentSessionId())) {
+                dbUser.setCurrentSessionId(null);
+                userRepo.save(dbUser);
+            }
         }
         session.invalidate();
         return "redirect:/";
@@ -81,7 +57,11 @@ public class LoginController {
     @GetMapping("/debug/reset-login")
     @ResponseBody
     public String resetLogin() {
-        loginUserMap.clear(); 
-        return "ログイン状態をリセットしました。";
+        // 全ユーザーのログイン状態をDBから強制リセット
+        userRepo.findAll().forEach(u -> {
+            u.setCurrentSessionId(null);
+            userRepo.save(u);
+        });
+        return "全ユーザーのログイン状態をリセットしました。";
     }
 }

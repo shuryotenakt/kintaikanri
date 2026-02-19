@@ -17,4 +17,5 @@ public class User {
     private String name;     // 名前
     private String password; // パスワード
     private String role;     // "ADMIN"（管理者）か "PARTNER"（パートナー）
+    private String currentSessionId;
 }
