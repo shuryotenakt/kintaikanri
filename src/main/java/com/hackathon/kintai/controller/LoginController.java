@@ -17,7 +17,7 @@ public class LoginController {
     @Autowired
     private UserRepository userRepo;
 
-    // ログイン中のユーザーを管理
+    // ログイン中のユーザーを管理（他のコントローラーからも見えるように public static にする）
     public static final Map<String, String> loginUserMap = new ConcurrentHashMap<>();
 
     @GetMapping("/debug/reset-login")
@@ -45,19 +45,30 @@ public class LoginController {
             return "redirect:/?error=invalid_password";
         }
 
-        // --- 二重ログインチェック（改善版） ---
         String userId = user.getUserId();
+
+        // 【デバッグ用ログ】動作確認のためにコンソールに出力します
+        System.out.println("--- ログイン試行 ---");
+        System.out.println("ユーザーID: " + userId);
+        System.out.println("現在のマップ: " + loginUserMap);
+        System.out.println("今回のセッションID: " + session.getId());
+
+        // --- 二重ログインの厳格チェック ---
         if (loginUserMap.containsKey(userId)) {
-            // ★ポイント：リストにあるセッションIDと、今の自分のセッションIDが違う場合だけ弾く
-            // これにより、同じブラウザで「戻る」ボタンや「別タブ」でログインし直す時は弾かれません
-            if (!loginUserMap.get(userId).equals(session.getId())) {
+            String existingSessionId = loginUserMap.get(userId);
+            
+            // 登録されているセッションIDと、今のセッションIDが違う場合は「他人」とみなす
+            if (!existingSessionId.equals(session.getId())) {
+                System.out.println("拒否：別の端末・ブラウザで既にログインされています。");
                 return "redirect:/?error=already_logged_in";
             }
         }
 
-        // 成功処理：最新のセッションIDを保存
+        // 成功処理：マップに最新のセッションIDを保存（上書き）
         loginUserMap.put(userId, session.getId());
         session.setAttribute("user", user);
+        
+        System.out.println("ログイン成功: " + userId);
         return "redirect:/partner";
     }
 
@@ -66,6 +77,7 @@ public class LoginController {
         User user = (User) session.getAttribute("user");
         if (user != null) {
             loginUserMap.remove(user.getUserId());
+            System.out.println("ログアウト実行: " + user.getUserId());
         }
         session.invalidate();
         return "redirect:/";

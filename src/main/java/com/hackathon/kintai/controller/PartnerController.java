@@ -22,28 +22,30 @@ public class PartnerController {
     @Autowired private AttendanceRepository attendanceRepo;
     @Autowired private UserRepository userRepo;
 
-    // --- 共通の二重ログインチェックメソッド ---
-    private boolean isInvalidSession(HttpSession session) {
-        User user = (User) session.getAttribute("user");
-        if (user == null) return true;
+    // PartnerController.java 内の isInvalidSession メソッドを修正
 
-        String userId = user.getUserId();
-        String currentSessionId = session.getId();
+private boolean isInvalidSession(HttpSession session) {
+    User user = (User) session.getAttribute("user");
+    if (user == null) return true;
 
-        // ログインマップに誰もいない場合は、自分が一番乗りで再登録
-        if (!LoginController.loginUserMap.containsKey(userId)) {
-            LoginController.loginUserMap.put(userId, currentSessionId);
-            return false;
-        }
+    String userId = user.getUserId();
+    String currentSessionId = session.getId();
 
-        // 別のセッションIDが登録されている場合は弾く
-        if (!currentSessionId.equals(LoginController.loginUserMap.get(userId))) {
-            session.invalidate(); 
-            return true;
-        }
-
-        return false;
+    // リストに自分のIDがない場合（サーバーリセット後など）
+    if (!LoginController.loginUserMap.containsKey(userId)) {
+        // 基本的には追い出す（ログイン画面を通らせるのが一番安全）
+        session.invalidate();
+        return true;
     }
+
+    // リストにあるIDと今のセッションが違うなら、自分は「古い人」なので追い出す
+    if (!currentSessionId.equals(LoginController.loginUserMap.get(userId))) {
+        session.invalidate(); 
+        return true;
+    }
+
+    return false;
+}
 
     @GetMapping
     public String dashboard(HttpSession session, Model model, 
