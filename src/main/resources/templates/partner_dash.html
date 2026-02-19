@@ -4,90 +4,153 @@
     <meta charset="UTF-8">
     <title>パートナー画面</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* ナビバー内の設定ボタンを見やすく調整 */
+        .btn-settings {
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            color: white !important;
+            transition: all 0.3s;
+        }
+        .btn-settings:hover, .btn-settings:focus, .show > .btn-settings {
+            background-color: white !important;
+            color: #6c757d !important; /* bg-secondaryの色 */
+            border-color: white;
+            box-shadow: 0 0 8px rgba(255,255,255,0.5);
+        }
+        /* ドロップダウンメニューの影と境界 */
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        #live-clock {
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-dark bg-secondary mb-4" th:if="${session.user != null}">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4" th:if="${session.user != null}">
         <div class="container">
-            <span class="navbar-brand">
-                ようこそ、<strong th:text="${session.user.name}">ユーザー</strong> さん
+            <span class="navbar-brand d-flex align-items-center">
+                ようこそ、<strong th:text="${session.user.name}" class="ms-1">ユーザー</strong> さん
                 <span class="badge bg-light text-dark ms-2">ID: [[${session.user.userId}]]</span>
                 <span class="badge ms-2" 
                     th:classappend="${status == 'WORK' ? 'bg-primary' : (status == 'REST' ? 'bg-warning' : 'bg-dark')}"
                     th:text="${status == 'WORK' ? '勤務中' : (status == 'REST' ? '休憩中' : '勤務外')}">
                 </span>
             </span>
-            <div class="d-flex gap-2">
-                <a th:if="${session.user.role == 'ADMIN'}" href="/admin" class="btn btn-warning btn-sm fw-bold">🔧 管理者メニューへ</a>
+
+            <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-3">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle btn btn-settings btn-sm px-3 fw-bold" 
+                       href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        ⚙️ 設定
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                        <li><h6 class="dropdown-header">アカウント管理</h6></li>
+                        <li><a class="dropdown-item py-2" href="#" data-bs-toggle="modal" data-bs-target="#pwModal">🔑 パスワード変更</a></li>
+                    </ul>
+                </div>
+                <div class="vr text-white opacity-50 d-none d-md-block"></div>
+                <a th:if="${session.user.role == 'ADMIN'}" href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">🔧 管理者</a>
                 <a href="/logout" class="btn btn-outline-light btn-sm">ログアウト</a>
             </div>
         </div>
     </nav>
 
     <div class="container">
-        <div class="card p-4 shadow-sm text-center mb-5">
-            <h2 class="mb-4">打刻パネル</h2>
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <div class="card p-4 shadow-sm text-center mb-5 border-0">
+            <h2 class="mb-2 fw-bold text-dark">打刻パネル</h2>
+            <div class="h3 text-primary fw-bold mb-4" id="live-clock">00:00:00</div>
             
             <div class="d-flex justify-content-center gap-3 flex-wrap">
                 <form action="/partner/clock-in" method="post">
-                    <button type="submit" 
-                            class="btn btn-lg px-5 shadow"
-                            th:classappend="${status == 'OFF' ? 'btn-primary' : 'btn-secondary'}"
-                            th:disabled="${status != 'OFF'}">
-                        出勤
-                    </button>
+                    <button type="submit" class="btn btn-lg px-5 shadow-sm fw-bold" 
+                            th:classappend="${status == 'OFF' ? 'btn-primary' : 'btn-secondary opacity-50'}" 
+                            th:disabled="${status != 'OFF'}">出勤</button>
                 </form>
-
                 <form action="/partner/break-start" method="post">
-                    <button type="submit" 
-                            class="btn btn-lg px-4 shadow"
-                            th:classappend="${status == 'WORK' ? 'btn-warning text-white' : 'btn-secondary'}"
-                            th:disabled="${status != 'WORK'}">
-                        休憩入り
-                    </button>
+                    <button type="submit" class="btn btn-lg px-4 shadow-sm fw-bold text-white" 
+                            th:classappend="${status == 'WORK' ? 'btn-warning' : 'btn-secondary opacity-50'}" 
+                            th:disabled="${status != 'WORK'}">休憩入り</button>
                 </form>
-
                 <form action="/partner/break-end" method="post">
-                    <button type="submit" 
-                            class="btn btn-lg px-4 shadow"
-                            th:classappend="${status == 'REST' ? 'btn-success' : 'btn-secondary'}"
-                            th:disabled="${status != 'REST'}">
-                        休憩戻り
-                    </button>
+                    <button type="submit" class="btn btn-lg px-4 shadow-sm fw-bold" 
+                            th:classappend="${status == 'REST' ? 'btn-success' : 'btn-secondary opacity-50'}" 
+                            th:disabled="${status != 'REST'}">休憩戻り</button>
                 </form>
-
                 <form action="/partner/clock-out" method="post">
-                    <button type="submit" 
-                            class="btn btn-lg px-5 shadow"
-                            th:classappend="${status == 'WORK' ? 'btn-danger' : 'btn-secondary'}"
-                            th:disabled="${status != 'WORK'}">
-                        退勤
-                    </button>
+                    <button type="submit" class="btn btn-lg px-5 shadow-sm fw-bold" 
+                            th:classappend="${status == 'WORK' ? 'btn-danger' : 'btn-secondary opacity-50'}" 
+                            th:disabled="${status != 'WORK'}">退勤</button>
                 </form>
             </div>
             
-            <div class="mt-3 text-muted small">
-                現在の状態: <span th:text="${status}"></span>
+            <div class="mt-3 text-muted">
+                現在のステータス: <span class="fw-bold" th:text="${status == 'WORK' ? '勤務中' : (status == 'REST' ? '休憩中' : '勤務外')}"></span>
             </div>
         </div>
 
-        <div class="card shadow-sm">
-            <div class="card-header bg-white fw-bold">自分の履歴</div>
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr><th>日付</th><th>出勤</th><th>退勤</th><th>休憩開始</th><th>休憩終了</th><th>実働時間</th></tr>
-                </thead>
-                <tbody>
-                    <tr th:each="h : ${myHistories}">
-                        <td th:text="${#temporals.format(h.startTime, 'yyyy/MM/dd')}"></td>
-                        <td th:text="${#temporals.format(h.startTime, 'HH:mm')}"></td>
-                        <td th:text="${h.endTime != null ? #temporals.format(h.endTime, 'HH:mm') : '-'}"></td>
-                        <td th:text="${h.breakStartTime != null ? #temporals.format(h.breakStartTime, 'HH:mm') : '-'}"></td>
-                        <td th:text="${h.breakEndTime != null ? #temporals.format(h.breakEndTime, 'HH:mm') : '-'}"></td>
-                        <td class="fw-bold text-success" th:text="${h.workTime}"></td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h5 class="card-title mb-0 fw-bold"><i class="bi bi-list-task me-2"></i>自分の勤務履歴</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th>日付</th><th>出勤</th><th>退勤</th><th>休憩開始</th><th>休憩終了</th><th>実働時間</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="h : ${myHistories}">
+                            <td th:text="${#temporals.format(h.startTime, 'yyyy/MM/dd')}"></td>
+                            <td th:text="${#temporals.format(h.startTime, 'HH:mm')}" class="fw-bold"></td>
+                            <td th:text="${h.endTime != null ? #temporals.format(h.endTime, 'HH:mm') : '-'}"></td>
+                            <td th:text="${h.breakStartTime != null ? #temporals.format(h.breakStartTime, 'HH:mm') : '-'}"></td>
+                            <td th:text="${h.breakEndTime != null ? #temporals.format(h.breakEndTime, 'HH:mm') : '-'}"></td>
+                            <td class="fw-bold text-success" th:text="${h.workTime}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+
+    <div class="modal fade" id="pwModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow">
+                <form action="/partner/password-reset" method="post">
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title fs-6">パスワードの更新</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body py-4">
+                        <label class="form-label small text-muted">新しいパスワード</label>
+                        <input type="password" name="newPassword" class="form-control" required minlength="4">
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">戻る</button>
+                        <button type="submit" class="btn btn-sm btn-primary">変更を保存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ja-JP', {hour12:false});
+            const clockEl = document.getElementById('live-clock');
+            if(clockEl) clockEl.textContent = timeStr;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
 </body>
 </html>
