@@ -130,12 +130,6 @@
                 });
             }
         });
-
-   // ブラウザやタブを閉じる、または更新する直前に実行
-    window.onbeforeunload = function() {
-        // ログアウト用URLを「バックグラウンド」で実行する（ブラウザが閉じても一瞬だけ通信する）
-        navigator.sendBeacon('/logout');
-    };
     </script>
 </body>
 </html>

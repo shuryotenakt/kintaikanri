@@ -321,16 +321,6 @@
             checkboxes.forEach(cb => cb.checked = source.checked);
         }
     </script>
-    <script>
-        // 🌟 ブラウザの×ボタン、タブ閉じ、スマホのタスクキルなど、画面が消える瞬間に確実に発動させる
-        window.addEventListener('pagehide', function () {
-            navigator.sendBeacon('/logout');
-        });
-        
-        // 念のため従来の書き方も残しておく（古いブラウザ用）
-        window.addEventListener('beforeunload', function () {
-            navigator.sendBeacon('/logout');
-        });
-    </script>
+
 </body>
 </html>
