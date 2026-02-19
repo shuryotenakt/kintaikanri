@@ -6,7 +6,6 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,15 +16,8 @@ public class LoginController {
     @Autowired
     private UserRepository userRepo;
 
-    // ログイン中のユーザーを管理（他のコントローラーからも見えるように public static にする）
+    // ログイン中のユーザーを管理するマップ
     public static final Map<String, String> loginUserMap = new ConcurrentHashMap<>();
-
-    @GetMapping("/debug/reset-login")
-    @ResponseBody
-    public String resetLogin() {
-        loginUserMap.clear(); 
-        return "全ユーザーのログイン予約状態をリセットしました。";
-    }
 
     @GetMapping("/")
     public String loginPage() {
@@ -34,41 +26,45 @@ public class LoginController {
 
     @PostMapping("/login")
     public String login(@RequestParam String loginInfo, @RequestParam String password, HttpSession session) {
+        // ユーザー検索
         User user = userRepo.findByUserId(loginInfo)
                 .orElseGet(() -> userRepo.findByName(loginInfo).orElse(null));
 
-        if (user == null) {
-            return "redirect:/?error=user_not_found";
-        }
-
-        if (!user.getPassword().equals(password)) {
+        // 認証チェック
+        if (user == null || !user.getPassword().equals(password)) {
             return "redirect:/?error=invalid_password";
         }
 
         String userId = user.getUserId();
+        String currentSessionId = session.getId();
 
-        // 【デバッグ用ログ】動作確認のためにコンソールに出力します
-        System.out.println("--- ログイン試行 ---");
-        System.out.println("ユーザーID: " + userId);
-        System.out.println("現在のマップ: " + loginUserMap);
-        System.out.println("今回のセッションID: " + session.getId());
+        // --- ログ出力（ここをコンソールで確認してください） ---
+        System.out.println("====== ログインチェック開始 ======");
+        System.out.println("ログイン試行ユーザー: " + userId);
+        System.out.println("自分のセッションID: " + currentSessionId);
+        System.out.println("現在のマップの状態: " + loginUserMap);
 
-        // --- 二重ログインの厳格チェック ---
+        // 1. 二重ログインチェック
         if (loginUserMap.containsKey(userId)) {
-            String existingSessionId = loginUserMap.get(userId);
-            
-            // 登録されているセッションIDと、今のセッションIDが違う場合は「他人」とみなす
-            if (!existingSessionId.equals(session.getId())) {
-                System.out.println("拒否：別の端末・ブラウザで既にログインされています。");
+            String activeId = loginUserMap.get(userId);
+            System.out.println("既にマップにあるセッションID: " + activeId);
+
+            if (!activeId.equals(currentSessionId)) {
+                System.out.println("【結果】別人なので拒否します！");
                 return "redirect:/?error=already_logged_in";
             }
+            System.out.println("【結果】本人（同セッション）なので通します。");
+        } else {
+            System.out.println("【結果】新規ログインとして許可します。");
         }
 
-        // 成功処理：マップに最新のセッションIDを保存（上書き）
-        loginUserMap.put(userId, session.getId());
+        // 2. 成功処理：マップに保存
+        loginUserMap.put(userId, currentSessionId);
         session.setAttribute("user", user);
         
-        System.out.println("ログイン成功: " + userId);
+        System.out.println("保存後のマップ: " + loginUserMap);
+        System.out.println("====== ログインチェック終了 ======");
+        
         return "redirect:/partner";
     }
 
@@ -77,43 +73,15 @@ public class LoginController {
         User user = (User) session.getAttribute("user");
         if (user != null) {
             loginUserMap.remove(user.getUserId());
-            System.out.println("ログアウト実行: " + user.getUserId());
         }
         session.invalidate();
         return "redirect:/";
     }
 
-    @GetMapping("/forgot-password")
-    public String forgotPasswordPage() {
-        return "forgot-password";
-    }
-
-    @PostMapping("/reset-password")
-    @Transactional
-    public String resetPassword(@RequestParam String userId, 
-                                @RequestParam String name, 
-                                @RequestParam String newPassword,
-                                @RequestParam String confirmPassword) {
-
-        if (!newPassword.equals(confirmPassword)) {
-            return "redirect:/forgot-password?error=password_mismatch";
-        }
-
-        User user = userRepo.findByUserId(userId).orElse(null);
-        if (user == null) {
-            return "redirect:/forgot-password?error=user_not_found";
-        }
-
-        if (!user.getName().equals(name)) {
-            return "redirect:/forgot-password?error=name_mismatch";
-        }
-
-        if (newPassword.equals(user.getPassword())) {
-            return "redirect:/forgot-password?error=same_as_old";
-        }
-
-        user.setPassword(newPassword);
-        userRepo.save(user);
-        return "redirect:/?reset_success";
+    @GetMapping("/debug/reset-login")
+    @ResponseBody
+    public String resetLogin() {
+        loginUserMap.clear(); 
+        return "ログイン状態をリセットしました。";
     }
 }
