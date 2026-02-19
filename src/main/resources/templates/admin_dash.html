@@ -71,19 +71,40 @@
 
             <div class="col-md-9">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <span class="fw-bold">打刻履歴管理</span>
-                        <form action="/admin" method="get" class="d-flex align-items-center">
-                            <select name="userId" class="form-select form-select-sm" style="width: 200px;" onchange="this.form.submit()">
-                                <option value="">全従業員を表示</option>
-                                <option th:each="u : ${userList}" 
-                                        th:value="${u.userId}" 
-                                        th:text="${u.name} + ' (' + ${u.userId} + ')'"
-                                        th:selected="${u.userId == selectedUserId}">
-                                </option>
-                            </select>
+                    <div class="card-header bg-white">
+                        <div class="fw-bold mb-2">打刻履歴管理</div>
+                        <form action="/admin" method="get" id="filterForm" class="d-flex flex-wrap align-items-center gap-3 bg-light p-2 rounded border">
+                            
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="small fw-bold text-muted text-nowrap">従業員:</span>
+                                <select name="userId" class="form-select form-select-sm" style="width: 150px;" onchange="document.getElementById('filterForm').submit()">
+                                    <option value="">全員を表示</option>
+                                    <option th:each="u : ${userList}" 
+                                            th:value="${u.userId}" 
+                                            th:text="${u.name} + ' (' + ${u.userId} + ')'"
+                                            th:selected="${u.userId == selectedUserId}">
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-1 border-start ps-3">
+                                <span class="small fw-bold text-muted text-nowrap">月:</span>
+                                <input type="month" name="month" id="monthInput" th:value="${selectedMonth}" class="form-control form-control-sm" onchange="onMonthChange()">
+                            </div>
+
+                            <div class="d-flex align-items-center gap-1 border-start ps-3">
+                                <span class="small fw-bold text-muted text-nowrap">日付:</span>
+                                <input type="date" name="startDate" id="startDateInput" th:value="${selectedStartDate}" class="form-control form-control-sm" onchange="onDateChange()">
+                                <span class="text-muted">～</span>
+                                <input type="date" name="endDate" id="endDateInput" th:value="${selectedEndDate}" class="form-control form-control-sm" onchange="onDateChange()">
+                            </div>
+
+                            <div class="ms-auto">
+                                <a href="/admin" class="btn btn-outline-secondary btn-sm">クリア</a>
+                            </div>
                         </form>
                     </div>
+                    
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
@@ -174,6 +195,26 @@
             var name = button.getAttribute('data-name');
             document.getElementById('deleteTargetId').value = id;
             document.getElementById('deleteTargetName').textContent = name;
+        }
+
+        // 🆕 検索フォームの排他制御スクリプト
+        function onMonthChange() {
+            // 月が選ばれたら、期間指定の箱を空にしてから検索実行
+            document.getElementById('startDateInput').value = '';
+            document.getElementById('endDateInput').value = '';
+            document.getElementById('filterForm').submit();
+        }
+
+        function onDateChange() {
+            // 期間が選ばれたら、月指定の箱を空にする
+            document.getElementById('monthInput').value = '';
+            
+            // 開始日と終了日が両方埋まった時だけ自動で検索実行
+            var start = document.getElementById('startDateInput').value;
+            var end = document.getElementById('endDateInput').value;
+            if (start && end) {
+                document.getElementById('filterForm').submit();
+            }
         }
     </script>
 </body>

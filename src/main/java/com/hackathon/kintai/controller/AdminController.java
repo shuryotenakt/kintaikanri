@@ -9,7 +9,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 
 @Controller
@@ -20,18 +22,50 @@ public class AdminController {
     @Autowired private AttendanceRepository attendanceRepo;
 
     @GetMapping
-    public String dashboard(@RequestParam(required = false) String userId, Model model) {
+    public String dashboard(@RequestParam(required = false) String userId,
+                            @RequestParam(required = false) String month,
+                            @RequestParam(required = false) String startDate,
+                            @RequestParam(required = false) String endDate,
+                            Model model) {
+        
         List<User> userList = userRepo.findAll();
         model.addAttribute("userList", userList);
 
+        // 1. 検索期間の作成（月指定 or 範囲指定）
+        LocalDateTime startDatetime = null;
+        LocalDateTime endDatetime = null;
+
+        if (startDate != null && !startDate.isEmpty() && endDate != null && !endDate.isEmpty()) {
+            // 範囲指定が優先
+            startDatetime = LocalDate.parse(startDate).atStartOfDay();
+            endDatetime = LocalDate.parse(endDate).plusDays(1).atStartOfDay().minusNanos(1);
+        } else if (month != null && !month.isEmpty()) {
+            // 月指定の場合、その月の1日から月末までを計算
+            YearMonth ym = YearMonth.parse(month);
+            startDatetime = ym.atDay(1).atStartOfDay();
+            endDatetime = ym.atEndOfMonth().plusDays(1).atStartOfDay().minusNanos(1);
+        }
+
+        // 2. データベースから検索
         List<Attendance> histories;
-        if (userId != null && !userId.isEmpty()) {
+        boolean hasUser = (userId != null && !userId.isEmpty());
+        boolean hasDate = (startDatetime != null && endDatetime != null);
+
+        if (hasUser && hasDate) {
+            histories = attendanceRepo.findAllByUserIdAndStartTimeBetweenOrderByStartTimeDesc(userId, startDatetime, endDatetime);
+        } else if (hasUser) {
             histories = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(userId);
-            model.addAttribute("selectedUserId", userId);
+        } else if (hasDate) {
+            histories = attendanceRepo.findAllByStartTimeBetweenOrderByStartTimeDesc(startDatetime, endDatetime);
         } else {
             histories = attendanceRepo.findAllByOrderByStartTimeDesc();
         }
         
+        // 3. 画面に入力状態を保持するためのデータ渡し
+        model.addAttribute("selectedUserId", userId);
+        model.addAttribute("selectedMonth", month);
+        model.addAttribute("selectedStartDate", startDate);
+        model.addAttribute("selectedEndDate", endDate);
         model.addAttribute("histories", histories);
         return "admin_dash"; 
     }
@@ -56,29 +90,20 @@ public class AdminController {
         return "redirect:/admin";
     }
 
-    // 🆕 ユーザー削除機能
     @PostMapping("/delete-user")
     public String deleteUser(@RequestParam Long targetId, @RequestParam String adminPassword, HttpSession session, RedirectAttributes redirectAttributes) {
         User admin = (User) session.getAttribute("user");
-        
-        // 1. 管理者のパスワードチェック
         if (!admin.getPassword().equals(adminPassword)) {
             redirectAttributes.addFlashAttribute("error", "パスワードが間違っています。削除できませんでした。");
             return "redirect:/admin";
         }
-
-        // 2. 削除対象のユーザーを取得
         User targetUser = userRepo.findById(targetId).orElse(null);
         if (targetUser != null) {
-            // 3. そのユーザーの勤怠データを全て消す（これをしないとゴミデータが残る）
             List<Attendance> userAttendances = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(targetUser.getUserId());
             attendanceRepo.deleteAll(userAttendances);
-
-            // 4. ユーザー本体を削除
             userRepo.delete(targetUser);
             redirectAttributes.addFlashAttribute("success", "ユーザー「" + targetUser.getName() + "」を削除しました。");
         }
-
         return "redirect:/admin";
     }
 }
