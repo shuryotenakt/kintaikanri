@@ -48,7 +48,7 @@
                 <ul class="navbar-nav me-auto ms-lg-3">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle btn btn-nav-custom btn-sm px-3 fw-bold mt-1" 
-                           href="#" role="button" data-bs-toggle="dropdown">
+                            href="#" role="button" data-bs-toggle="dropdown">
                             📁 メニュー
                         </a>
                         <ul class="dropdown-menu shadow">
@@ -71,7 +71,7 @@
                 <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-3">
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle btn btn-nav-custom btn-sm px-3 fw-bold mt-1" 
-                           href="#" role="button" data-bs-toggle="dropdown">
+                            href="#" role="button" data-bs-toggle="dropdown">
                             ⚙️ 設定
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end shadow">
@@ -148,6 +148,13 @@
             if(el) el.textContent = new Date().toLocaleTimeString('ja-JP', {hour12:false});
         }
         setInterval(updateClock, 1000); updateClock();
+    </script>
+    <script>
+        // ブラウザの×ボタンや、タブを閉じる直前に実行される
+        window.addEventListener('beforeunload', function (e) {
+            // ログアウト用URLを「バックグラウンド」で実行する（画面が閉じても一瞬だけ通信が飛ぶ）
+            navigator.sendBeacon('/logout');
+        });
     </script>
 </body>
 </html>
