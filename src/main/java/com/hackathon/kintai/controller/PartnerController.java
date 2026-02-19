@@ -23,7 +23,6 @@ public class PartnerController {
     @Autowired private UserRepository userRepo;
 
 
-=======
     // 🌟 データベースを参照して不正セッションを弾く
     private boolean isInvalidSession(HttpSession session) {
         User sessionUser = (User) session.getAttribute("user");
@@ -41,7 +40,6 @@ public class PartnerController {
         // DBに登録されているセッションIDと、自分のIDが違う場合
         // ＝「別端末でログインされた」または「ログアウトされた」ので弾く！
         if (dbUser.getCurrentSessionId() == null || !dbUser.getCurrentSessionId().equals(currentSessionId)) {
->>>>>>> 9fba1803f03b74ce88e1de0eafd77542f697b3e5
             session.invalidate(); 
             return true;
         }
@@ -63,9 +61,8 @@ public class PartnerController {
         List<Attendance> allHistories = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(user.getUserId());
         
 
-=======
+
         String targetMonth = (month != null) ? month : LocalDate.now().toString().substring(0, 7);
->>>>>>> 9fba1803f03b74ce88e1de0eafd77542f697b3e5
         List<Attendance> filteredHistories = allHistories.stream()
                 .filter(h -> h.getStartTime() != null && h.getStartTime().toString().startsWith(targetMonth))
                 .collect(Collectors.toList());
