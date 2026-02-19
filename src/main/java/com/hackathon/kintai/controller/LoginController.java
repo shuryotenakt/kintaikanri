@@ -20,39 +20,33 @@ public class LoginController {
 
     @PostMapping("/login")
     public String login(@RequestParam String loginInfo, @RequestParam String password, HttpSession session) {
-        // 1. ユーザーをDBから探す
         User user = userRepo.findByUserId(loginInfo)
                 .orElseGet(() -> userRepo.findByName(loginInfo).orElse(null));
 
-        // 2. パスワードが間違っていたら弾く
         if (user == null || !user.getPassword().equals(password)) {
             return "redirect:/?error=invalid_password";
         }
 
-        // 🌟 3. 【DBで二重ログインをブロック】
-        // すでにDBに誰かのセッションIDが記録されているかチェック！
+        // 🌟 【先勝ち仕様】すでにDBにセッションIDが記録されているかチェック
         if (user.getCurrentSessionId() != null && !user.getCurrentSessionId().isEmpty()) {
-            // もし「今ログインしようとしている自分のセッション」と違うなら、別端末（PC2）とみなして弾く！
             if (!user.getCurrentSessionId().equals(session.getId())) {
                 System.out.println("【ブロック】すでに別端末でログイン中です。対象: " + user.getUserId());
-                return "redirect:/?error=already_logged_in"; // 赤いエラーメッセージを出して追い返す
+                return "redirect:/?error=already_logged_in";
             }
         }
 
-        // 4. ログイン成功！自分のセッションIDをDBに書き込んで「使用中」にする
         user.setCurrentSessionId(session.getId());
         userRepo.save(user);
 
-        // セッションにユーザー情報を入れて画面へ進める
         session.setAttribute("user", user);
         return "redirect:/partner";
     }
 
-    @GetMapping("/logout")
+    // 🌟 ここを変更！GET（リンク押下）でもPOST（Beacon通信）でも受け取れるようにした！
+    @RequestMapping(value = "/logout", method = {RequestMethod.GET, RequestMethod.POST})
     public String logout(HttpSession session) {
         User user = (User) session.getAttribute("user");
         if (user != null) {
-            // ログアウト時に、DBのセッションIDを空っぽ（null）にして、次の人が入れるようにする
             User dbUser = userRepo.findById(user.getId()).orElse(null);
             if (dbUser != null && session.getId().equals(dbUser.getCurrentSessionId())) {
                 dbUser.setCurrentSessionId(null);
@@ -63,7 +57,6 @@ public class LoginController {
         return "redirect:/";
     }
 
-    // 🆘 緊急時のロック解除用（ブラウザ強制終了などで誰も入れなくなった時用）
     @GetMapping("/debug/reset-login")
     @ResponseBody
     public String resetLogin() {
@@ -105,7 +98,6 @@ public class LoginController {
         }
 
         user.setPassword(newPassword);
-        // パスワードを変えたら、安全のためにログイン状態を解除しておく
         user.setCurrentSessionId(null); 
         userRepo.save(user);
 
