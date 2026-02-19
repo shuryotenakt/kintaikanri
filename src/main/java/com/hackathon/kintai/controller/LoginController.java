@@ -20,29 +20,30 @@ public class LoginController {
 
     @PostMapping("/login")
     public String login(@RequestParam String loginInfo, @RequestParam String password, HttpSession session) {
-        // ユーザー検索
+        // 1. ユーザーをDBから探す
         User user = userRepo.findByUserId(loginInfo)
                 .orElseGet(() -> userRepo.findByName(loginInfo).orElse(null));
 
-        // 認証チェック
+        // 2. パスワードが間違っていたら弾く
         if (user == null || !user.getPassword().equals(password)) {
             return "redirect:/?error=invalid_password";
         }
 
-        String currentSessionId = session.getId();
-
-        // 🌟 【先勝ち仕様】すでにDBにセッションIDが記録されている ＝ 誰かがログイン中！
+        // 🌟 3. 【DBで二重ログインをブロック】
+        // すでにDBに誰かのセッションIDが記録されているかチェック！
         if (user.getCurrentSessionId() != null && !user.getCurrentSessionId().isEmpty()) {
-            if (!user.getCurrentSessionId().equals(currentSessionId)) {
-                System.out.println("【ブロック】不正ログインを検知しました。対象: " + user.getUserId());
-                return "redirect:/?error=already_logged_in";
+            // もし「今ログインしようとしている自分のセッション」と違うなら、別端末（PC2）とみなして弾く！
+            if (!user.getCurrentSessionId().equals(session.getId())) {
+                System.out.println("【ブロック】すでに別端末でログイン中です。対象: " + user.getUserId());
+                return "redirect:/?error=already_logged_in"; // 赤いエラーメッセージを出して追い返す
             }
         }
 
-        // 誰もログインしていない（または自分自身）なら、DBに新しいセッションIDを保存
-        user.setCurrentSessionId(currentSessionId);
+        // 4. ログイン成功！自分のセッションIDをDBに書き込んで「使用中」にする
+        user.setCurrentSessionId(session.getId());
         userRepo.save(user);
 
+        // セッションにユーザー情報を入れて画面へ進める
         session.setAttribute("user", user);
         return "redirect:/partner";
     }
@@ -51,6 +52,7 @@ public class LoginController {
     public String logout(HttpSession session) {
         User user = (User) session.getAttribute("user");
         if (user != null) {
+            // ログアウト時に、DBのセッションIDを空っぽ（null）にして、次の人が入れるようにする
             User dbUser = userRepo.findById(user.getId()).orElse(null);
             if (dbUser != null && session.getId().equals(dbUser.getCurrentSessionId())) {
                 dbUser.setCurrentSessionId(null);
@@ -61,6 +63,7 @@ public class LoginController {
         return "redirect:/";
     }
 
+    // 🆘 緊急時のロック解除用（ブラウザ強制終了などで誰も入れなくなった時用）
     @GetMapping("/debug/reset-login")
     @ResponseBody
     public String resetLogin() {
@@ -68,20 +71,18 @@ public class LoginController {
             u.setCurrentSessionId(null);
             userRepo.save(u);
         });
-        return "全ユーザーのログイン状態をリセットしました。";
+        return "全ユーザーのログイン状態をリセットし、ロックを解除しました。";
     }
 
     // ==========================================
-    // 🆕 パスワード再設定用の機能（ここを追加！）
+    // パスワード再設定用の機能
     // ==========================================
     
-    // 1. パスワード再設定画面を表示する
     @GetMapping("/forgot-password")
     public String forgotPasswordPage() {
         return "forgot-password";
     }
 
-    // 2. フォームから送られてきた新しいパスワードを保存する
     @PostMapping("/reset-password")
     public String resetPassword(@RequestParam String userId,
                                 @RequestParam String name,
@@ -90,7 +91,6 @@ public class LoginController {
         
         User user = userRepo.findByUserId(userId).orElse(null);
         
-        // エラーチェック（HTMLの指定に合わせてエラーメッセージを出し分ける）
         if (user == null) {
             return "redirect:/forgot-password?error=user_not_found";
         }
@@ -104,14 +104,11 @@ public class LoginController {
             return "redirect:/forgot-password?error=same_as_old";
         }
 
-        // 全てクリアしたら、新しいパスワードをセット
         user.setPassword(newPassword);
-        
-        // パスワードを変えたので、もしログイン状態だった場合は強制的にロックを解除する
+        // パスワードを変えたら、安全のためにログイン状態を解除しておく
         user.setCurrentSessionId(null); 
         userRepo.save(user);
 
-        // 成功したらログイン画面に戻して、成功メッセージを出す
         return "redirect:/?reset_success=true";
     }
 }
