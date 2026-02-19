@@ -12,6 +12,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     // 名前とパスワードで検索（名前でもログインできるように！）
     Optional<User> findByNameAndPassword(String name, String password);
+    Optional<User> findByUserIdAndName(String userId, String name);
     
     // ユーザーが何人いるか数える（自動ID割り振りに使用）
     long count();

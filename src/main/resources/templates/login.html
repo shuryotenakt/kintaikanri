@@ -13,6 +13,7 @@
                     <div class="card-body">
                         <h3 class="card-title text-center mb-4">勤怠管理システム</h3>
                         <div th:if="${param.error}" class="alert alert-danger">IDまたはパスワードが違います</div>
+                        <div th:if="${param.reset_success}" class="alert alert-success">パスワードを更新しました</div>
                         <form action="/login" method="post">
                             <div class="mb-3">
                                 <label class="form-label">ユーザーID または 名前</label>
@@ -24,6 +25,9 @@
                             </div>
                             <button type="submit" class="btn btn-primary w-100">ログイン</button>
                         </form>
+                        <div class="text-center mt-3">
+    <a href="/forgot-password" class="text-secondary small">パスワードを忘れた場合はこちら</a>
+</div>
                         <hr>
                         <p class="text-muted small">※初期管理者は ID:admin / Pass:admin123</p>
                     </div>
