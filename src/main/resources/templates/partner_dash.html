@@ -155,8 +155,22 @@
             const el = document.getElementById('live-clock');
             if(el) el.textContent = new Date().toLocaleTimeString('ja-JP', {hour12:false});
         }
-
         setInterval(updateClock, 1000); updateClock();
+    </script>
+
+    <script>
+        // 🌟 ボタン連打による二重送信（ダブルサブミット）を防止する処理
+        function singleSubmit(form) {
+            // 押されたフォームの中にある送信ボタンを探す
+            const btn = form.querySelector('button[type="submit"]');
+            if (btn) {
+                // ボタンを押せない状態（無効化）にする
+                btn.disabled = true;
+                // ついでにボタンの文字を変えてあげると親切！
+                btn.textContent = '処理中...'; 
+            }
+            return true;
+        }
     </script>
 
 </body>
