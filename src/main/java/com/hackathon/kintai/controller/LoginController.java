@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 @Controller
 public class LoginController {
@@ -36,4 +37,38 @@ public class LoginController {
         session.invalidate();
         return "redirect:/";
     }
+
+    @GetMapping("/forgot-password")
+    public String forgotPasswordPage() {
+        return "forgot-password";
+    }
+@PostMapping("/reset-password")
+@Transactional
+public String resetPassword(@RequestParam String userId, 
+                            @RequestParam String name, 
+                            @RequestParam String newPassword,
+                        @RequestParam String confirmPassword) { // 引数を追加
+
+    // 1. パスワードの一致チェック
+    if (!newPassword.equals(confirmPassword)) {
+        return "redirect:/forgot-password?error=password_mismatch";
+    }
+    
+    // IDと名前だけでユーザーを特定する（パスワードは無視する）
+    User user = userRepo.findByUserIdAndName(userId, name).orElse(null);
+
+    if (user != null) {
+
+        // 現在のパスワードと同じかチェック
+        if (newPassword.equals(user.getPassword())) {
+            return "redirect:/forgot-password?error=same_as_old";
+        }
+        user.setPassword(newPassword);
+        userRepo.save(user); // これで実際にDBが更新されます
+        return "redirect:/?reset_success";
+    }
+    
+    return "redirect:/forgot-password?error";
+}
+
 }
