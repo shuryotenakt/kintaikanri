@@ -21,23 +21,15 @@ public class PartnerController {
     @Autowired private AttendanceRepository attendanceRepo;
     @Autowired private UserRepository userRepo;
 
-
-    // 🌟 データベースを参照して不正セッションを弾く
     private boolean isInvalidSession(HttpSession session) {
         User sessionUser = (User) session.getAttribute("user");
         if (sessionUser == null) return true;
-
-        // 毎回DBの最新状態を確認する
         User dbUser = userRepo.findById(sessionUser.getId()).orElse(null);
         if (dbUser == null) {
             session.invalidate();
             return true;
         }
-
         String currentSessionId = session.getId();
-
-        // DBに登録されているセッションIDと、自分のIDが違う場合
-        // ＝「別端末でログインされた」または「ログアウトされた」ので弾く！
         if (dbUser.getCurrentSessionId() == null || !dbUser.getCurrentSessionId().equals(currentSessionId)) {
             session.invalidate(); 
             return true;
@@ -51,16 +43,14 @@ public class PartnerController {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
         User user = (User) session.getAttribute("user");
         
-        Attendance last = attendanceRepo.findTopByUserIdOrderByStartTimeDesc(user.getUserId());
+        // ステータス判定
+        Attendance active = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
         String currentStatus = "OFF";
-        if (last != null && last.getEndTime() == null) {
-            currentStatus = (last.getBreakStartTime() != null && last.getBreakEndTime() == null) ? "REST" : "WORK";
+        if (active != null) {
+            currentStatus = (active.getBreakStartTime() != null && active.getBreakEndTime() == null) ? "REST" : "WORK";
         }
 
         List<Attendance> allHistories = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(user.getUserId());
-        
-
-
         String targetMonth = (month != null) ? month : LocalDate.now().toString().substring(0, 7);
         List<Attendance> filteredHistories = allHistories.stream()
                 .filter(h -> h.getStartTime() != null && h.getStartTime().toString().startsWith(targetMonth))
@@ -70,7 +60,6 @@ public class PartnerController {
         model.addAttribute("myHistories", filteredHistories);
         model.addAttribute("status", currentStatus);
         model.addAttribute("selectedMonth", targetMonth); 
-        
         return "partner_dash";
     }
 
@@ -78,11 +67,16 @@ public class PartnerController {
     public String clockIn(HttpSession session) {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
         User user = (User) session.getAttribute("user");
-        Attendance a = new Attendance();
-        a.setUserId(user.getUserId());
-        a.setUserName(user.getName());
-        a.setStartTime(LocalDateTime.now());
-        attendanceRepo.save(a);
+        
+        // 【防止】退勤していないログがある場合は新規作成しない
+        Attendance active = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
+        if (active == null) {
+            Attendance a = new Attendance();
+            a.setUserId(user.getUserId());
+            a.setUserName(user.getName());
+            a.setStartTime(LocalDateTime.now());
+            attendanceRepo.save(a);
+        }
         return "redirect:/partner";
     }
 
@@ -90,8 +84,10 @@ public class PartnerController {
     public String breakStart(HttpSession session) {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
         User user = (User) session.getAttribute("user");
-        Attendance a = attendanceRepo.findTopByUserIdOrderByStartTimeDesc(user.getUserId());
-        if (a != null && a.getEndTime() == null) {
+        Attendance a = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
+        
+        // 【防止】出勤中かつ休憩開始していない場合のみ
+        if (a != null && a.getBreakStartTime() == null) {
             a.setBreakStartTime(LocalDateTime.now());
             attendanceRepo.save(a);
         }
@@ -102,8 +98,10 @@ public class PartnerController {
     public String breakEnd(HttpSession session) {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
         User user = (User) session.getAttribute("user");
-        Attendance a = attendanceRepo.findTopByUserIdOrderByStartTimeDesc(user.getUserId());
-        if (a != null && a.getEndTime() == null) {
+        Attendance a = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
+        
+        // 【防止】休憩開始済みかつ休憩終了していない場合のみ
+        if (a != null && a.getBreakStartTime() != null && a.getBreakEndTime() == null) {
             a.setBreakEndTime(LocalDateTime.now());
             attendanceRepo.save(a);
         }
@@ -114,7 +112,9 @@ public class PartnerController {
     public String clockOut(HttpSession session) {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
         User user = (User) session.getAttribute("user");
-        Attendance a = attendanceRepo.findTopByUserIdOrderByStartTimeDesc(user.getUserId());
+        Attendance a = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
+        
+        // 【防止】出勤中かつ退勤していない場合のみ
         if (a != null && a.getEndTime() == null) {
             a.setEndTime(LocalDateTime.now());
             attendanceRepo.save(a);
