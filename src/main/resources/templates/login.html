@@ -88,10 +88,13 @@
     </style>
 </head>
 <body>
+    
 
     <div class="login-container">
         <div class="login-card">
-            <div class="app-logo">KINTAI.</div>
+            <div style="text-align: center; margin-top: 30px; margin-top:-5px; margin-bottom: 15px;">
+                <img src="/images/logo.png" alt="Prime Worker Logo" style="width: 300px; height: auto;">
+            </div>
 
             <div th:if="${param.error}" class="alert alert-danger bg-danger-subtle text-danger mb-4">
                 <span th:if="${param.error[0] == 'already_logged_in'}">他の端末でログイン中のため、入れません。</span>
