@@ -22,16 +22,26 @@ public class PartnerController {
     @Autowired private AttendanceRepository attendanceRepo;
     @Autowired private UserRepository userRepo;
 
+
+=======
+    // 🌟 データベースを参照して不正セッションを弾く
     private boolean isInvalidSession(HttpSession session) {
-        User user = (User) session.getAttribute("user");
-        if (user == null) return true;
-        String userId = user.getUserId();
-        String currentSessionId = session.getId();
-        if (!LoginController.loginUserMap.containsKey(userId)) {
-            LoginController.loginUserMap.put(userId, currentSessionId);
-            return false;
+        User sessionUser = (User) session.getAttribute("user");
+        if (sessionUser == null) return true;
+
+        // 毎回DBの最新状態を確認する
+        User dbUser = userRepo.findById(sessionUser.getId()).orElse(null);
+        if (dbUser == null) {
+            session.invalidate();
+            return true;
         }
-        if (!currentSessionId.equals(LoginController.loginUserMap.get(userId))) {
+
+        String currentSessionId = session.getId();
+
+        // DBに登録されているセッションIDと、自分のIDが違う場合
+        // ＝「別端末でログインされた」または「ログアウトされた」ので弾く！
+        if (dbUser.getCurrentSessionId() == null || !dbUser.getCurrentSessionId().equals(currentSessionId)) {
+>>>>>>> 9fba1803f03b74ce88e1de0eafd77542f697b3e5
             session.invalidate(); 
             return true;
         }
@@ -52,8 +62,10 @@ public class PartnerController {
 
         List<Attendance> allHistories = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(user.getUserId());
         
-        // パラメータがなければ「今月」を表示
-        String targetMonth = (month != null && !month.isEmpty()) ? month : LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+
+=======
+        String targetMonth = (month != null) ? month : LocalDate.now().toString().substring(0, 7);
+>>>>>>> 9fba1803f03b74ce88e1de0eafd77542f697b3e5
         List<Attendance> filteredHistories = allHistories.stream()
                 .filter(h -> h.getStartTime() != null && h.getStartTime().toString().startsWith(targetMonth))
                 .collect(Collectors.toList());
