@@ -39,6 +39,11 @@
                     <div class="card-header bg-primary text-white">新規ユーザー登録</div>
                     <div class="card-body">
                         <form action="/admin/register" method="post" autocomplete="off">
+                            <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
+                            <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
+                            <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
+                            <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
+                            
                             <input type="text" name="name" class="form-control mb-2" placeholder="氏名" required autocomplete="off">
                             <input type="password" name="password" class="form-control mb-2" placeholder="パスワード" required autocomplete="new-password">
                             <select name="role" class="form-select mb-3">
@@ -116,7 +121,12 @@
                         </div>
                     </div>
                     
-                    <form id="deleteForm" action="/admin/delete-attendances" method="post"></form>
+                    <form id="deleteForm" action="/admin/delete-attendances" method="post">
+                        <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
+                        <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
+                        <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
+                        <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
+                    </form>
 
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
@@ -135,12 +145,10 @@
                                     <td class="delete-col d-none text-center">
                                         <input class="form-check-input attendance-checkbox" type="checkbox" name="attendanceIds" th:value="${h.id}" form="deleteForm">
                                     </td>
-
                                     <td>
                                         <span class="fw-bold">[[${h.userName}]]</span><br>
                                         <small class="text-muted">ID: [[${h.userId}]]</small>
                                     </td>
-                                    
                                     <td>
                                         <div class="mb-2">
                                             <span class="badge bg-secondary mb-1">記録</span><br>
@@ -150,23 +158,22 @@
                                                 <span th:text="${h.endTime != null ? #temporals.format(h.endTime, 'HH:mm') : '未退勤'}"></span>
                                             </span>
                                         </div>
-                                        
                                         <div class="edit-panel">
                                             <form action="/admin/edit" method="post" class="d-flex align-items-center gap-2 m-0">
+                                                <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
+                                                <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
+                                                <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
+                                                <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
+                                                
                                                 <input type="hidden" name="id" th:value="${h.id}">
                                                 <span class="text-muted small fw-bold">修正:</span>
-                                                <input type="datetime-local" name="startTime" 
-                                                       th:value="${#temporals.format(h.startTime, 'yyyy-MM-dd''T''HH:mm')}" 
-                                                       class="form-control form-control-sm" style="width: auto;">
+                                                <input type="datetime-local" name="startTime" th:value="${#temporals.format(h.startTime, 'yyyy-MM-dd''T''HH:mm')}" class="form-control form-control-sm" style="width: auto;">
                                                 <span class="text-muted small">～</span>
-                                                <input type="datetime-local" name="endTime" 
-                                                       th:value="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy-MM-dd''T''HH:mm') : ''}" 
-                                                       class="form-control form-control-sm" style="width: auto;">
+                                                <input type="datetime-local" name="endTime" th:value="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy-MM-dd''T''HH:mm') : ''}" class="form-control form-control-sm" style="width: auto;">
                                                 <button type="submit" class="btn btn-warning btn-sm fw-bold shadow-sm">上書き保存</button>
                                             </form>
                                         </div>
                                     </td>
-
                                     <td>
                                         <span class="badge bg-success fs-6" th:text="${h.workTime}"></span>
                                     </td>
@@ -191,6 +198,11 @@
                 </div>
                 <div class="modal-body">
                     <form action="/admin/create-attendance" method="post">
+                        <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
+                        <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
+                        <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
+                        <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
+                        
                         <div class="mb-3">
                             <label class="form-label fw-bold">対象ユーザー</label>
                             <select name="targetUserId" class="form-select" required>
@@ -228,6 +240,11 @@
                     <span class="text-danger small">※このユーザーの勤怠データもすべて削除されます。</span></p>
                     
                     <form action="/admin/delete-user" method="post">
+                        <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
+                        <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
+                        <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
+                        <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
+                        
                         <input type="hidden" name="targetId" id="deleteTargetId">
                         <div class="mb-3">
                             <label class="form-label fw-bold">管理者のパスワードを入力</label>
@@ -244,7 +261,6 @@
     </div>
 
     <script>
-        // ユーザー削除モーダル用
         function setDeleteTarget(button) {
             var id = button.getAttribute('data-id');
             var name = button.getAttribute('data-name');
@@ -252,7 +268,6 @@
             document.getElementById('deleteTargetName').textContent = name;
         }
 
-        // 検索排他制御
         function onMonthChange() {
             document.getElementById('startDateInput').value = '';
             document.getElementById('endDateInput').value = '';
@@ -268,7 +283,6 @@
             }
         }
 
-        // 🆕 削除モードの切り替えスクリプト
         let isDeleteMode = false;
         function toggleDeleteMode() {
             isDeleteMode = !isDeleteMode;
@@ -276,11 +290,9 @@
             const execBtn = document.getElementById('executeDeleteBtn');
             const modeBtn = document.getElementById('deleteModeBtn');
 
-            // チェックボックス列と削除実行ボタンの表示/非表示
             cols.forEach(col => col.classList.toggle('d-none', !isDeleteMode));
             execBtn.classList.toggle('d-none', !isDeleteMode);
 
-            // ボタンの見た目を変える
             if (isDeleteMode) {
                 modeBtn.classList.remove('btn-outline-danger');
                 modeBtn.classList.add('btn-danger');
@@ -290,13 +302,11 @@
                 modeBtn.classList.add('btn-outline-danger');
                 modeBtn.textContent = '🗑️ 削除モードON';
                 
-                // モードOFF時にチェックをすべて外す
                 document.querySelectorAll('.attendance-checkbox').forEach(cb => cb.checked = false);
                 document.getElementById('selectAll').checked = false;
             }
         }
 
-        // 🆕 全選択チェックボックスの動き
         function toggleAllCheckboxes(source) {
             const checkboxes = document.querySelectorAll('.attendance-checkbox');
             checkboxes.forEach(cb => cb.checked = source.checked);
