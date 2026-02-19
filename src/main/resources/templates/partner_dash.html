@@ -150,9 +150,13 @@
         setInterval(updateClock, 1000); updateClock();
     </script>
     <script>
-        // ブラウザの×ボタンや、タブを閉じる直前に実行される
-        window.addEventListener('beforeunload', function (e) {
-            // ログアウト用URLを「バックグラウンド」で実行する（画面が閉じても一瞬だけ通信が飛ぶ）
+        // 🌟 ブラウザの×ボタン、タブ閉じ、スマホのタスクキルなど、画面が消える瞬間に確実に発動させる
+        window.addEventListener('pagehide', function () {
+            navigator.sendBeacon('/logout');
+        });
+        
+        // 念のため従来の書き方も残しておく（古いブラウザ用）
+        window.addEventListener('beforeunload', function () {
             navigator.sendBeacon('/logout');
         });
     </script>
