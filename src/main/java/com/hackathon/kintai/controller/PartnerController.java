@@ -9,6 +9,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+// ★以下の import が不足しているとエラーになります
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,11 +22,36 @@ public class PartnerController {
     @Autowired private AttendanceRepository attendanceRepo;
     @Autowired private UserRepository userRepo;
 
+    // --- 共通の二重ログインチェックメソッド ---
+    private boolean isInvalidSession(HttpSession session) {
+        User user = (User) session.getAttribute("user");
+        if (user == null) return true;
+
+        String userId = user.getUserId();
+        String currentSessionId = session.getId();
+
+        // ログインマップに誰もいない場合は、自分が一番乗りで再登録
+        if (!LoginController.loginUserMap.containsKey(userId)) {
+            LoginController.loginUserMap.put(userId, currentSessionId);
+            return false;
+        }
+
+        // 別のセッションIDが登録されている場合は弾く
+        if (!currentSessionId.equals(LoginController.loginUserMap.get(userId))) {
+            session.invalidate(); 
+            return true;
+        }
+
+        return false;
+    }
+
     @GetMapping
     public String dashboard(HttpSession session, Model model, 
                             @RequestParam(name = "month", required = false) String month) {
+        // 二重ログインチェック
+        if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
+        
         User user = (User) session.getAttribute("user");
-        if (user == null) return "redirect:/";
         
         // 勤務ステータスの判定
         Attendance last = attendanceRepo.findTopByUserIdOrderByStartTimeDesc(user.getUserId());
@@ -40,20 +66,21 @@ public class PartnerController {
         // 月別フィルタリング（指定がなければ今月を表示）
         String targetMonth = (month != null) ? month : LocalDate.now().toString().substring(0, 7);
         List<Attendance> filteredHistories = allHistories.stream()
-                .filter(h -> h.getStartTime().toString().startsWith(targetMonth))
+                .filter(h -> h.getStartTime() != null && h.getStartTime().toString().startsWith(targetMonth))
                 .collect(Collectors.toList());
 
         model.addAttribute("user", user);
         model.addAttribute("myHistories", filteredHistories);
         model.addAttribute("status", currentStatus);
-        model.addAttribute("selectedMonth", targetMonth); // 画面表示用
+        model.addAttribute("selectedMonth", targetMonth); 
         
         return "partner_dash";
     }
 
-    // --- 打刻関連メソッド（変更なし） ---
     @PostMapping("/clock-in")
     public String clockIn(HttpSession session) {
+        if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
+
         User user = (User) session.getAttribute("user");
         Attendance a = new Attendance();
         a.setUserId(user.getUserId());
@@ -65,6 +92,8 @@ public class PartnerController {
 
     @PostMapping("/break-start")
     public String breakStart(HttpSession session) {
+        if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
+
         User user = (User) session.getAttribute("user");
         Attendance a = attendanceRepo.findTopByUserIdOrderByStartTimeDesc(user.getUserId());
         if (a != null && a.getEndTime() == null) {
@@ -76,6 +105,8 @@ public class PartnerController {
 
     @PostMapping("/break-end")
     public String breakEnd(HttpSession session) {
+        if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
+
         User user = (User) session.getAttribute("user");
         Attendance a = attendanceRepo.findTopByUserIdOrderByStartTimeDesc(user.getUserId());
         if (a != null && a.getEndTime() == null) {
@@ -87,6 +118,8 @@ public class PartnerController {
 
     @PostMapping("/clock-out")
     public String clockOut(HttpSession session) {
+        if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
+
         User user = (User) session.getAttribute("user");
         Attendance a = attendanceRepo.findTopByUserIdOrderByStartTimeDesc(user.getUserId());
         if (a != null && a.getEndTime() == null) {
@@ -98,11 +131,13 @@ public class PartnerController {
 
     @PostMapping("/password-reset")
     public String resetPassword(@RequestParam String newPassword, HttpSession session, RedirectAttributes ra) {
+        if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
+
         User sessionUser = (User) session.getAttribute("user");
-        if (sessionUser == null) return "redirect:/";
         User user = userRepo.findById(sessionUser.getId()).orElseThrow();
         user.setPassword(newPassword);
         userRepo.save(user);
+        
         session.setAttribute("user", user);
         ra.addFlashAttribute("success", "パスワードを更新しました。");
         return "redirect:/partner";
