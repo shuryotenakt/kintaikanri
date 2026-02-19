@@ -9,7 +9,10 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/partner")
@@ -19,28 +22,36 @@ public class PartnerController {
     @Autowired private UserRepository userRepo;
 
     @GetMapping
-    public String dashboard(HttpSession session, Model model) {
+    public String dashboard(HttpSession session, Model model, 
+                            @RequestParam(name = "month", required = false) String month) {
         User user = (User) session.getAttribute("user");
         if (user == null) return "redirect:/";
         
+        // 勤務ステータスの判定
         Attendance last = attendanceRepo.findTopByUserIdOrderByStartTimeDesc(user.getUserId());
         String currentStatus = "OFF";
-
         if (last != null && last.getEndTime() == null) {
-            if (last.getBreakStartTime() != null && last.getBreakEndTime() == null) {
-                currentStatus = "REST";
-            } else {
-                currentStatus = "WORK";
-            }
+            currentStatus = (last.getBreakStartTime() != null && last.getBreakEndTime() == null) ? "REST" : "WORK";
         }
 
+        // 全履歴の取得
+        List<Attendance> allHistories = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(user.getUserId());
+        
+        // 月別フィルタリング（指定がなければ今月を表示）
+        String targetMonth = (month != null) ? month : LocalDate.now().toString().substring(0, 7);
+        List<Attendance> filteredHistories = allHistories.stream()
+                .filter(h -> h.getStartTime().toString().startsWith(targetMonth))
+                .collect(Collectors.toList());
+
         model.addAttribute("user", user);
-        model.addAttribute("myHistories", attendanceRepo.findAllByUserIdOrderByStartTimeDesc(user.getUserId()));
+        model.addAttribute("myHistories", filteredHistories);
         model.addAttribute("status", currentStatus);
+        model.addAttribute("selectedMonth", targetMonth); // 画面表示用
         
         return "partner_dash";
     }
 
+    // --- 打刻関連メソッド（変更なし） ---
     @PostMapping("/clock-in")
     public String clockIn(HttpSession session) {
         User user = (User) session.getAttribute("user");
@@ -89,11 +100,9 @@ public class PartnerController {
     public String resetPassword(@RequestParam String newPassword, HttpSession session, RedirectAttributes ra) {
         User sessionUser = (User) session.getAttribute("user");
         if (sessionUser == null) return "redirect:/";
-        
         User user = userRepo.findById(sessionUser.getId()).orElseThrow();
         user.setPassword(newPassword);
         userRepo.save(user);
-        
         session.setAttribute("user", user);
         ra.addFlashAttribute("success", "パスワードを更新しました。");
         return "redirect:/partner";
