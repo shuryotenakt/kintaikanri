@@ -58,6 +58,11 @@ public String resetPassword(@RequestParam String userId,
     User user = userRepo.findByUserIdAndName(userId, name).orElse(null);
 
     if (user != null) {
+
+        // 現在のパスワードと同じかチェック
+        if (newPassword.equals(user.getPassword())) {
+            return "redirect:/forgot-password?error=same_as_old";
+        }
         user.setPassword(newPassword);
         userRepo.save(user); // これで実際にDBが更新されます
         return "redirect:/?reset_success";
