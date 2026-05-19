@@ -42,7 +42,6 @@ public class LoginController {
         return "redirect:/partner";
     }
 
-    // 🌟 ここを変更！GET（リンク押下）でもPOST（Beacon通信）でも受け取れるようにした！
     @RequestMapping(value = "/logout", method = {RequestMethod.GET, RequestMethod.POST})
     public String logout(HttpSession session) {
         User user = (User) session.getAttribute("user");
@@ -68,7 +67,7 @@ public class LoginController {
     }
 
     // ==========================================
-    // パスワード再設定用の機能
+    // パスワード再設定用の機能（サーバー側全角バリデーション追加）
     // ==========================================
     
     @GetMapping("/forgot-password")
@@ -90,6 +89,13 @@ public class LoginController {
         if (!user.getName().equals(name)) {
             return "redirect:/forgot-password?error=name_mismatch";
         }
+
+        // 🌟【セキュリティ強化】新パスワードに全角文字（半角の英数・記号以外）が含まれている場合はエラー
+        // [^\x21-\x7e] = 半角の英数・記号（アスキー文字）以外の文字すべてを検出
+        if (newPassword.matches(".*[^\\x21-\\x7e].*")) {
+            return "redirect:/forgot-password?error=invalid_characters";
+        }
+
         if (!newPassword.equals(confirmPassword)) {
             return "redirect:/forgot-password?error=password_mismatch";
         }
