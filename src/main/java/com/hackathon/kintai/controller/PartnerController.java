@@ -11,6 +11,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,27 +40,61 @@ public class PartnerController {
 
     @GetMapping
     public String dashboard(HttpSession session, Model model, 
-                            @RequestParam(name = "month", required = false) String month) {
+                            @RequestParam(name = "startDate", required = false) String startDate,
+                            @RequestParam(name = "endDate", required = false) String endDate) {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
         User user = (User) session.getAttribute("user");
         
-        // ステータス判定
+        // 1. ステータス判定（既存ロジック通り）
         Attendance active = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
         String currentStatus = "OFF";
         if (active != null) {
             currentStatus = (active.getBreakStartTime() != null && active.getBreakEndTime() == null) ? "REST" : "WORK";
         }
 
+        // 2. 全履歴を取得
         List<Attendance> allHistories = attendanceRepo.findAllByUserIdOrderByStartTimeDesc(user.getUserId());
-        String targetMonth = (month != null) ? month : LocalDate.now().toString().substring(0, 7);
-        List<Attendance> filteredHistories = allHistories.stream()
-                .filter(h -> h.getStartTime() != null && h.getStartTime().toString().startsWith(targetMonth))
-                .collect(Collectors.toList());
+        List<Attendance> filteredHistories;
+        String titleLabel = "全期間の";
 
+        // 3. 期間検索（startDate と endDate が両方存在する場合）のフィルタリング処理
+        if (startDate != null && !startDate.isEmpty() && endDate != null && !endDate.isEmpty()) {
+            try {
+                // 検索の開始日（00:00:00）と 終了日（23:59:59）を設定
+                LocalDateTime startOfPeriod = LocalDate.parse(startDate).atStartOfDay();
+                LocalDateTime endOfPeriod = LocalDate.parse(endDate).atTime(23, 59, 59);
+
+                filteredHistories = allHistories.stream()
+                        .filter(h -> h.getStartTime() != null && 
+                                    !h.getStartTime().isBefore(startOfPeriod) && 
+                                    !h.getStartTime().isAfter(endOfPeriod))
+                        .collect(Collectors.toList());
+
+                // カレンダーのタイトル用に成形
+                DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+                titleLabel = startOfPeriod.format(dtf) + " ～ " + endOfPeriod.format(dtf) + " の";
+
+            } catch (Exception e) {
+                // 日付解析エラー等の場合は安全のため全件表示にする
+                filteredHistories = allHistories;
+                startDate = "";
+                endDate = "";
+            }
+        } else {
+            // 検索条件がない場合は、既存データの全件を表示する（これで出勤データが消えずに表示されます）
+            filteredHistories = allHistories;
+            startDate = "";
+            endDate = "";
+        }
+
+        // 4. 画面（Thymeleaf）へデータを渡す（変数の名前を保持用カレンダーと完全一致させています）
         model.addAttribute("user", user);
         model.addAttribute("myHistories", filteredHistories);
         model.addAttribute("status", currentStatus);
-        model.addAttribute("selectedMonth", targetMonth); 
+        model.addAttribute("startDate", startDate); 
+        model.addAttribute("endDate", endDate); 
+        model.addAttribute("titleLabel", titleLabel); 
+
         return "partner_dash";
     }
 
@@ -68,7 +103,6 @@ public class PartnerController {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
         User user = (User) session.getAttribute("user");
         
-        // 【防止】退勤していないログがある場合は新規作成しない
         Attendance active = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
         if (active == null) {
             Attendance a = new Attendance();
@@ -86,7 +120,6 @@ public class PartnerController {
         User user = (User) session.getAttribute("user");
         Attendance a = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
         
-        // 【防止】出勤中かつ休憩開始していない場合のみ
         if (a != null && a.getBreakStartTime() == null) {
             a.setBreakStartTime(LocalDateTime.now());
             attendanceRepo.save(a);
@@ -100,7 +133,6 @@ public class PartnerController {
         User user = (User) session.getAttribute("user");
         Attendance a = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
         
-        // 【防止】休憩開始済みかつ休憩終了していない場合のみ
         if (a != null && a.getBreakStartTime() != null && a.getBreakEndTime() == null) {
             a.setBreakEndTime(LocalDateTime.now());
             attendanceRepo.save(a);
@@ -114,7 +146,6 @@ public class PartnerController {
         User user = (User) session.getAttribute("user");
         Attendance a = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
         
-        // 【防止】出勤中かつ退勤していない場合のみ
         if (a != null && a.getEndTime() == null) {
             a.setEndTime(LocalDateTime.now());
             attendanceRepo.save(a);

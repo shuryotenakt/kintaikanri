@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>パートナー画面</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    
     <style>
         .btn-nav-custom {
             border: 1px solid rgba(255, 255, 255, 0.6);
@@ -29,8 +32,22 @@
             display: block;
         }
         #live-clock { font-family: 'Courier New', monospace; }
+
+        /* 💡 期間検索フォーム用の追加スタイル */
+        .search-container {
+            background-color: #fff;
+            border-radius: 8px;
+        }
+        #rangePicker {
+            min-width: 280px;
+            background-color: #fff !important;
+            cursor: pointer;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
 </head>
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4" th:if="${session.user != null}">
@@ -52,18 +69,7 @@
                            📁 メニュー
                         </a>
                         <ul class="dropdown-menu shadow">
-                            <li class="dropdown-submenu">
-                                <a class="dropdown-item dropdown-toggle py-2" href="#">📊 勤怠履歴</a>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="/partner">今月の履歴</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="/partner?month=2026-02">2026年 02月</a></li>
-                                    <li><a class="dropdown-item" href="/partner?month=2026-01">2026年 01月</a></li>
-                                    <li><a class="dropdown-item" href="/partner?month=2025-12">2025年 12月</a></li>
-                                </ul>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item disabled" href="#">(その他機能追加予定)</a></li>
+                            <li><a class="dropdown-item disabled text-muted py-2" href="#">(その他機能追加予定)</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -92,7 +98,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
 
-        <div class="card p-4 shadow-sm text-center mb-5 border-0">
+        <div class="card p-4 shadow-sm text-center mb-4 border-0">
             <h2 class="mb-2 fw-bold text-dark">打刻パネル</h2>
             <div class="h3 text-primary fw-bold mb-4" id="live-clock">00:00:00</div>
             <div class="d-flex justify-content-center gap-3 flex-wrap">
@@ -111,9 +117,22 @@
             </div>
         </div>
 
+        <div class="card shadow-sm border-0 mb-4 search-container">
+            <div class="card-body py-3">
+                <form action="/partner" method="get" id="searchForm" class="d-flex align-items-center justify-content-center gap-3 flex-wrap">
+                    <label for="rangePicker" class="fw-bold text-dark m-0">表示期間切り替え：</label>
+                    
+                    <input type="text" id="rangePicker" class="form-control shadow-sm w-auto text-center fw-bold" placeholder="期間をドラッグまたは選択">
+                    
+                    <input type="hidden" id="startDate" name="startDate" th:value="${startDate}">
+                    <input type="hidden" id="endDate" name="endDate" th:value="${endDate}">
+                </form>
+            </div>
+        </div>
+
         <div class="card shadow-sm border-0">
             <div class="card-header bg-white py-3">
-                <h5 class="card-title mb-0 fw-bold">📅 [[${selectedMonth}]] の勤務履歴</h5>
+                <h5 class="card-title mb-0 fw-bold">📅 <span th:text="${titleLabel}"></span> 勤務履歴</h5>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -159,19 +178,48 @@
     </script>
 
     <script>
-        // 🌟 ボタン連打による二重送信（ダブルサブミット）を防止する処理
         function singleSubmit(form) {
-            // 押されたフォームの中にある送信ボタンを探す
             const btn = form.querySelector('button[type="submit"]');
             if (btn) {
-                // ボタンを押せない状態（無効化）にする
                 btn.disabled = true;
-                // ついでにボタンの文字を変えてあげると親切！
                 btn.textContent = '処理中...'; 
             }
             return true;
         }
-    </script>
 
+        // 💡 期間検索カレンダー（Flatpickr）の制御スクリプト
+        document.addEventListener('DOMContentLoaded', function() {
+            // Java側から戻ってきた検索条件を取得
+            const savedStart = document.getElementById('startDate').value;
+            const savedEnd = document.getElementById('endDate').value;
+            
+            flatpickr("#rangePicker", {
+                locale: {
+                    ...flatpickr.l10ns.ja,
+                    rangeSeparator: " ～ "
+                },
+                mode: "range",      // ドラッグ・複数日選択モード
+                dateFormat: "Y-m-d",
+                // 検索後も選んだ日付範囲を画面上に残す設定
+                defaultDate: (savedStart && savedEnd) ? [savedStart, savedEnd] : null,
+                onClose: function(selectedDates) {
+                    // 開始日と終了日の2つがしっかりクリック・ドラッグ選択されたら自動送信
+                    if (selectedDates.length === 2) {
+                        const tzOffset = selectedDates[0].getTimezoneOffset() * 60000;
+                        
+                        // タイムゾーンによる日付ズレを防いで正確に yyyy-MM-dd 文字列化
+                        const startLocal = new Date(selectedDates[0].getTime() - tzOffset);
+                        const endLocal = new Date(selectedDates[1].getTime() - tzOffset);
+                        
+                        document.getElementById('startDate').value = startLocal.toISOString().slice(0, 10);
+                        document.getElementById('endDate').value = endLocal.toISOString().slice(0, 10);
+                        
+                        // サーバー（Java）へフォームを自動送信
+                        document.getElementById('searchForm').submit();
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 </html>
