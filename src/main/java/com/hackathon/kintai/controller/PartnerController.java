@@ -66,8 +66,8 @@ public class PartnerController {
 
                 filteredHistories = allHistories.stream()
                         .filter(h -> h.getStartTime() != null && 
-                                    !h.getStartTime().isBefore(startOfPeriod) && 
-                                    !h.getStartTime().isAfter(endOfPeriod))
+                                     !h.getStartTime().isBefore(startOfPeriod) && 
+                                     !h.getStartTime().isAfter(endOfPeriod))
                         .collect(Collectors.toList());
 
                 // カレンダーのタイトル用に成形
@@ -103,6 +103,7 @@ public class PartnerController {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
         User user = (User) session.getAttribute("user");
         
+        // 既存の勤務履歴をチェック
         Attendance active = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
         if (active == null) {
             Attendance a = new Attendance();
@@ -153,11 +154,32 @@ public class PartnerController {
         return "redirect:/partner";
     }
 
+    // 🌟 パスワード変更機能の拡張（二重チェック＆全角文字エラー追加）
     @PostMapping("/password-reset")
-    public String resetPassword(@RequestParam String newPassword, HttpSession session, RedirectAttributes ra) {
+    public String resetPassword(@RequestParam String newPassword, 
+                                @RequestParam String confirmPassword, 
+                                HttpSession session, 
+                                RedirectAttributes ra) {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
+        
+        // 1. 全角文字（半角の英数・記号以外）が含まれている場合はエラー
+        if (newPassword.matches(".*[^\\x21-\\x7e].*")) {
+            return "redirect:/partner?error=invalid_characters";
+        }
+
+        // 2. 二つのパスワードが一致しない場合はエラー
+        if (!newPassword.equals(confirmPassword)) {
+            return "redirect:/partner?error=password_mismatch";
+        }
+
         User sessionUser = (User) session.getAttribute("user");
         User user = userRepo.findById(sessionUser.getId()).orElseThrow();
+
+        // 3. 現在のパスワードと同じ場合はエラー
+        if (user.getPassword().equals(newPassword)) {
+            return "redirect:/partner?error=same_as_old";
+        }
+
         user.setPassword(newPassword);
         userRepo.save(user);
         session.setAttribute("user", user);
