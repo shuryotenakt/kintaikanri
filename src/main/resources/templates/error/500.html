@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Error | KINTAI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body style="background-color: #f8f9fa;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+        <div style="background: #fff; padding: 40px; border-radius: 12px; border: 1px solid #eaeaea; text-align: center; max-width: 500px; width: 100%;">
+            <h1 class="text-danger mb-3" style="font-weight: 700; font-size: 1.5rem;">システムエラーが発生しました</h1>
+            
+            <p class="text-muted mb-4" th:if="${errorMessage}" th:text="${errorMessage}">
+                予期せぬエラーが発生しました。
+            </p>
+            <p class="text-muted mb-4" th:unless="${errorMessage}">
+                申し訳ありませんが、もう一度やり直すか、管理者にお問い合わせください。
+            </p>
+
+            <a href="/login" class="btn btn-dark w-100" style="padding: 12px; font-weight: 600;">ログイン画面へ戻る</a>
+        </div>
+    </div>
+</body>
+</html>
