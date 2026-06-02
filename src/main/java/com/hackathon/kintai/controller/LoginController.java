@@ -3,6 +3,7 @@ package com.hackathon.kintai.controller;
 import com.hackathon.kintai.model.User;
 import com.hackathon.kintai.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletResponse; // 💡追加
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +15,24 @@ public class LoginController {
     private UserRepository userRepo;
 
     @GetMapping("/")
-    public String loginPage() {
+    public String loginPage(HttpSession session, HttpServletResponse response) {
+        // 💡 戻るボタン対策：ログイン画面自体もキャッシュさせない
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
+
+        // 💡 ログイン済みのユーザーがタブを閉じて、またログインページを開いた場合の処理
+        User sessionUser = (User) session.getAttribute("user");
+        if (sessionUser != null) {
+            User dbUser = userRepo.findById(sessionUser.getId()).orElse(null);
+            // DBのセッションIDと現在のブラウザのセッションIDが一致していれば、自動でダッシュボードへ移動
+            if (dbUser != null && session.getId().equals(dbUser.getCurrentSessionId())) {
+                if ("ADMIN".equals(dbUser.getRole())) {
+                    return "redirect:/admin";
+                }
+                return "redirect:/partner";
+            }
+        }
         return "login";
     }
 
@@ -39,11 +57,21 @@ public class LoginController {
         userRepo.save(user);
 
         session.setAttribute("user", user);
+        
+        // 💡 管理者ロールの場合は管理者画面へ、それ以外はパートナー画面へリダイレクト
+        if ("ADMIN".equals(user.getRole())) {
+            return "redirect:/admin";
+        }
         return "redirect:/partner";
     }
 
     @RequestMapping(value = "/logout", method = {RequestMethod.GET, RequestMethod.POST})
-    public String logout(HttpSession session) {
+    public String logout(HttpSession session, HttpServletResponse response) {
+        // 💡 ログアウト時にもキャッシュクリアヘッダーを付与
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
+
         User user = (User) session.getAttribute("user");
         if (user != null) {
             User dbUser = userRepo.findById(user.getId()).orElse(null);
@@ -52,8 +80,10 @@ public class LoginController {
                 userRepo.save(dbUser);
             }
         }
+        
+        // セッションを完全に無効化（サーバー側の保持をクリア）
         session.invalidate();
-        return "redirect:/";
+        return "redirect:/?logout";
     }
 
     @GetMapping("/debug/reset-login")
@@ -91,7 +121,6 @@ public class LoginController {
         }
 
         // 🌟【セキュリティ強化】新パスワードに全角文字（半角の英数・記号以外）が含まれている場合はエラー
-        // [^\x21-\x7e] = 半角の英数・記号（アスキー文字）以外の文字すべてを検出
         if (newPassword.matches(".*[^\\x21-\\x7e].*")) {
             return "redirect:/forgot-password?error=invalid_characters";
         }

@@ -3,6 +3,7 @@ package com.hackathon.kintai.controller;
 import com.hackathon.kintai.model.*;
 import com.hackathon.kintai.repository.*;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletResponse; // 💡追加
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -39,11 +40,18 @@ public class PartnerController {
     }
 
     @GetMapping
-    public String dashboard(HttpSession session, Model model, 
+    public String dashboard(HttpSession session, 
+                            HttpServletResponse response, // 💡追加：キャッシュ削除用
+                            Model model, 
                             @RequestParam(name = "startDate", required = false) String startDate,
                             @RequestParam(name = "endDate", required = false) String endDate) {
         if (isInvalidSession(session)) return "redirect:/?error=already_logged_in";
         User user = (User) session.getAttribute("user");
+        
+        // 💡 戻るボタン対策：ログアウトした後に「戻る」で画面が見えてしまうのを防ぐ
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
         
         // 1. ステータス判定（既存ロジック通り）
         Attendance active = attendanceRepo.findTopByUserIdAndEndTimeIsNullOrderByStartTimeDesc(user.getUserId());
@@ -87,7 +95,7 @@ public class PartnerController {
             endDate = "";
         }
 
-        // 4. 画面（Thymeleaf）へデータを渡す（変数の名前を保持用カレンダーと完全一致させています）
+        // 4. 画面（Thymeleaf）へデータを渡す
         model.addAttribute("user", user);
         model.addAttribute("myHistories", filteredHistories);
         model.addAttribute("status", currentStatus);

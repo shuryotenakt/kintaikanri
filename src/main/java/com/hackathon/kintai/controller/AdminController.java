@@ -3,6 +3,7 @@ package com.hackathon.kintai.controller;
 import com.hackathon.kintai.model.*;
 import com.hackathon.kintai.repository.*;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletResponse; // 💡追加
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -34,7 +35,19 @@ public class AdminController {
                             @RequestParam(required = false) String month,
                             @RequestParam(required = false) String startDate,
                             @RequestParam(required = false) String endDate,
+                            HttpSession session,          // 💡追加：ログインチェック用
+                            HttpServletResponse response,  // 💡追加：キャッシュ削除用
                             Model model) {
+        
+        // 💡 セキュリティ対策：ログインしていない場合はログイン画面に強制送還
+        if (session.getAttribute("user") == null) {
+            return "redirect:/login";
+        }
+
+        // 💡 戻るボタン対策：ログアウトした後に「戻る」で画面が見えてしまうのを防ぐ
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
         
         List<User> userList = userRepo.findAll();
         model.addAttribute("userList", userList);
@@ -73,6 +86,15 @@ public class AdminController {
         return "admin_dash"; 
     }
 
+    // 💡 新設：ログアウト処理（セッションを完全に破壊する）
+    @GetMapping("/logout")
+    public String logout(HttpSession session) {
+        if (session != null) {
+            session.invalidate(); // 💡 セッションを無効化し、ログイン状態を完全に消去
+        }
+        return "redirect:/login?logout";
+    }
+
     @PostMapping("/register")
     public String register(@RequestParam String name, @RequestParam String password, @RequestParam String role,
                             @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
@@ -90,7 +112,7 @@ public class AdminController {
 
     @PostMapping("/edit")
     public String edit(@RequestParam Long id, @RequestParam String startTime, @RequestParam String endTime, 
-                        @RequestParam(required = false, defaultValue = "0") Integer breakMinutes, // 🆕 休憩時間を受け取る
+                        @RequestParam(required = false, defaultValue = "0") Integer breakMinutes, 
                         @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
                         @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
                         RedirectAttributes redirectAttributes) {
@@ -117,7 +139,6 @@ public class AdminController {
                 keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
                 return "redirect:/admin";
             }
-            // 🛑 休憩時間のオーバーをガード！
             long totalMinutes = Duration.between(start, end).toMinutes();
             if (breakMinutes > totalMinutes) {
                 redirectAttributes.addFlashAttribute("error", "【エラー】休憩時間が勤務時間（拘束時間）をオーバーしています。");
@@ -129,7 +150,7 @@ public class AdminController {
         Attendance a = attendanceRepo.findById(id).orElseThrow();
         a.setStartTime(start);
         a.setEndTime(end);
-        a.setBreakMinutes(breakMinutes); // 🆕 休憩時間を保存
+        a.setBreakMinutes(breakMinutes); 
         attendanceRepo.save(a);
         
         redirectAttributes.addFlashAttribute("success", "打刻を上書き保存しました。");
@@ -143,7 +164,7 @@ public class AdminController {
                              @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
                              RedirectAttributes redirectAttributes) {
         User admin = (User) session.getAttribute("user");
-        if (!admin.getPassword().equals(adminPassword)) {
+        if (admin == null || !admin.getPassword().equals(adminPassword)) {
             redirectAttributes.addFlashAttribute("error", "パスワードが間違っています。削除できませんでした。");
             keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
             return "redirect:/admin";
@@ -161,7 +182,7 @@ public class AdminController {
 
     @PostMapping("/create-attendance")
     public String createAttendance(@RequestParam String targetUserId, @RequestParam String startTime, @RequestParam(required = false) String endTime, 
-                                    @RequestParam(required = false, defaultValue = "0") Integer breakMinutes, // 🆕 休憩時間を受け取る
+                                    @RequestParam(required = false, defaultValue = "0") Integer breakMinutes, 
                                     @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
                                     @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
                                     RedirectAttributes redirectAttributes) {
@@ -188,7 +209,6 @@ public class AdminController {
                 keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
                 return "redirect:/admin";
             }
-            // 🛑 休憩時間のオーバーをガード！
             long totalMinutes = Duration.between(start, end).toMinutes();
             if (breakMinutes > totalMinutes) {
                 redirectAttributes.addFlashAttribute("error", "【エラー】休憩時間が勤務時間（拘束時間）をオーバーしています。");
@@ -205,7 +225,7 @@ public class AdminController {
             a.setUserName(targetUser.getName());
             a.setStartTime(start);
             a.setEndTime(end);
-            a.setBreakMinutes(breakMinutes); // 🆕 休憩時間を保存
+            a.setBreakMinutes(breakMinutes); 
             attendanceRepo.save(a);
             redirectAttributes.addFlashAttribute("success", targetUser.getName() + " の打刻を新規登録しました。");
         }
