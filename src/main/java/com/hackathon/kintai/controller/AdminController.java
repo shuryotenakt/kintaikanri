@@ -3,6 +3,7 @@ package com.hackathon.kintai.controller;
 import com.hackathon.kintai.model.*;
 import com.hackathon.kintai.repository.*;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletResponse; // 💡 追加
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -60,14 +61,17 @@ public class AdminController {
     }
 
     @GetMapping
-    public String dashboard(@RequestParam(required = false) String userId,
-                            @RequestParam(required = false) String month,
-                            @RequestParam(required = false) String startDate,
-                            @RequestParam(required = false) String endDate,
-                            Model model) {
-        
-        List<User> userList = userRepo.findAll();
-        model.addAttribute("userList", userList);
+    public String dashboard(HttpSession session, HttpServletResponse response, Model model,
+                            @RequestParam(name = "userId", required = false) String userId,
+                            @RequestParam(name = "month", required = false) String month,
+                            @RequestParam(name = "startDate", required = false) String startDate,
+                            @RequestParam(name = "endDate", required = false) String endDate) {
+        // 🌟 1. 管理者チェック & 2. キャッシュ禁止ヘッダー適用
+        if (isInvalidAdminSession(session)) return "redirect:/?error=already_logged_in";
+        setNoCacheHeaders(response);
+
+        List<User> userlist = userRepo.findAll();
+        model.addAttribute("userList", userlist);
 
         LocalDateTime startDatetime = null;
         LocalDateTime endDatetime = null;
@@ -129,15 +133,6 @@ public class AdminController {
         return "admin_dash";
     }
 
-    // 💡 新設：ログアウト処理（セッションを完全に破壊する）
-    @GetMapping("/logout")
-    public String logout(HttpSession session) {
-        if (session != null) {
-            session.invalidate(); // 💡 セッションを無効化し、ログイン状態を完全に消去
-        }
-        return "redirect:/login?logout";
-    }
-
     @PostMapping("/register")
     public String register(HttpSession session, HttpServletResponse response,
                            @RequestParam String name, @RequestParam String password, @RequestParam String role,
@@ -151,7 +146,21 @@ public class AdminController {
         user.setName(name);
         user.setPassword(password);
         user.setRole(role);
-        user.setUserId(String.valueOf(1000 + userRepo.count() + 1));
+
+        // 💡 重複を絶対に防ぐ安全な採番ロジック
+        // DB内の全ユーザーから、最大のuser_id（を数値変換したもの）を見つけて +1 する
+        int maxId = userRepo.findAll().stream()
+                .map(u -> {
+                    try {
+                        return Integer.parseInt(u.getUserId());
+                    } catch (NumberFormatException e) {
+                        return 1000; // 数値変換できないイレギュラーなID（admin等）は1000として扱う
+                    }
+                })
+                .max(Integer::compareTo)
+                .orElse(1000); // 1人もいない場合は1000からスタート
+
+        user.setUserId(String.valueOf(maxId + 1)); // 最大のIDの「次の番号」を確実に割り当てる
         userRepo.save(user);
 
         keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
@@ -159,12 +168,15 @@ public class AdminController {
     }
 
     @PostMapping("/edit")
-    public String edit(@RequestParam Long id, @RequestParam String startTime, @RequestParam String endTime, 
-                        @RequestParam(required = false, defaultValue = "0") Integer breakMinutes, // 🆕 休憩時間を受け取る
-                        @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
-                        @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
-                        RedirectAttributes redirectAttributes) {
-        
+    public String edit(HttpSession session, HttpServletResponse response,
+                       @RequestParam Long id, @RequestParam String startTime, @RequestParam String endTime,
+                       @RequestParam(required = false, defaultValue = "0") Integer breakMinutes,
+                       @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth,
+                       @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
+                       RedirectAttributes redirectAttributes) {
+        if (isInvalidAdminSession(session)) return "redirect:/?error=already_logged_in";
+        setNoCacheHeaders(response);
+
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime start = LocalDateTime.parse(startTime);
         LocalDateTime end = null;
@@ -198,7 +210,7 @@ public class AdminController {
         Attendance a = attendanceRepo.findById(id).orElseThrow();
         a.setStartTime(start);
         a.setEndTime(end);
-        a.setBreakMinutes(breakMinutes); // 🆕 休憩時間を保存
+        a.setBreakMinutes(breakMinutes);
         attendanceRepo.save(a);
 
         redirectAttributes.addFlashAttribute("success", "打刻を上書き保存しました。");
@@ -216,10 +228,12 @@ public class AdminController {
         setNoCacheHeaders(response);
 
         User admin = (User) session.getAttribute("user");
-        if (!admin.getPassword().equals(adminPassword)) {
-            redirectAttributes.addFlashAttribute("error", "パスワードが間違っています。削除できませんでした。");
-            keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
-            return "redirect:/admin";
+        if (admin != null) {
+            if (!admin.getPassword().equals(adminPassword)) {
+                redirectAttributes.addFlashAttribute("error", "【エラー】パスワードが間違っています。削除できませんでした。");
+                keepFilters(redirectAttributes, filterUserId, filterMonth, filterStartDate, filterEndDate);
+                return "redirect:/admin";
+            }
         }
 
         User targetUser = userRepo.findById(targetId).orElse(null);
@@ -242,12 +256,15 @@ public class AdminController {
     }
 
     @PostMapping("/create-attendance")
-    public String createAttendance(@RequestParam String targetUserId, @RequestParam String startTime, @RequestParam(required = false) String endTime, 
-                                    @RequestParam(required = false, defaultValue = "0") Integer breakMinutes, // 🆕 休憩時間を受け取る
-                                    @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth, 
-                                    @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
-                                    RedirectAttributes redirectAttributes) {
-        
+    public String createAttendance(HttpSession session, HttpServletResponse response,
+                                   @RequestParam String targetUserId, @RequestParam String startTime, @RequestParam String endTime,
+                                   @RequestParam(required = false, defaultValue = "0") Integer breakMinutes,
+                                   @RequestParam(required = false) String filterUserId, @RequestParam(required = false) String filterMonth,
+                                   @RequestParam(required = false) String filterStartDate, @RequestParam(required = false) String filterEndDate,
+                                   RedirectAttributes redirectAttributes) {
+        if (isInvalidAdminSession(session)) return "redirect:/?error=already_logged_in";
+        setNoCacheHeaders(response);
+
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime start = LocalDateTime.parse(startTime);
         LocalDateTime end = null;
@@ -285,7 +302,7 @@ public class AdminController {
             a.setUserName(targetUser.getName());
             a.setStartTime(start);
             a.setEndTime(end);
-            a.setBreakMinutes(breakMinutes); // 🆕 休憩時間を保存
+            a.setBreakMinutes(breakMinutes);
             attendanceRepo.save(a);
             redirectAttributes.addFlashAttribute("success", targetUser.getName() + " の打刻を新規登録しました。");
         }
