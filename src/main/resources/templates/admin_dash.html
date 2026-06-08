@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,102 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <style>
-        body { font-family: 'Inter', -apple-system, sans-serif; }
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: #333;
+            overflow-x: hidden;
+            /* 画面全体の横スクロールを絶対に出さない */
+        }
+
+        /* 画面全体のレイアウト：左右をきっちり固定 */
+        .admin-layout {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            min-height: calc(100vh - 54px);
+            width: 100vw;
+        }
+
+        /* ================= 左側：サイドバー ================= */
+        .admin-sidebar {
+            background-color: #ffffff;
+            border-right: 1px solid #eaeaea;
+            padding: 20px;
+            height: calc(100vh - 54px);
+            position: sticky;
+            top: 54px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-sizing: border-box;
+        }
+
+        .sidebar-menu,
+        .sidebar-card {
+            flex-shrink: 0;
+        }
+
+        .sidebar-menu .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            color: #495057;
+            font-weight: 600;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .sidebar-menu .nav-link:hover {
+            background-color: #f1f3f5;
+            color: #0d6efd;
+        }
+
+        .sidebar-menu .nav-link.active {
+            background-color: #e7f1ff;
+            color: #0d6efd;
+            border-color: #dee2e6;
+        }
+
+        .sidebar-card {
+            background: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .sidebar-card-header {
+            padding: 12px 15px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .employee-list-scroll {
+            max-height: none !important;
+            overflow-y: visible !important;
+        }
+
+        /* ================= 右側：メインコンテンツ ================= */
+        .admin-main-content {
+            padding: 30px;
+            overflow-x: hidden;
+            min-width: 0;
+        }
+
+        .admin-top-header {
+            background-color: #212529;
+            color: white;
+            padding: 12px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 54px;
+        }
+
         .edit-panel {
             background-color: #f8f9fa;
             border: 1px solid #dee2e6;
@@ -16,218 +112,444 @@
             padding: 8px;
             display: inline-block;
         }
+
         .delete-col {
             transition: all 0.3s;
         }
+
         .password-toggle-btn {
             border: 1px solid #dee2e6;
             border-left: none;
             background: #fff;
             color: #888;
         }
+
         .password-toggle-btn:hover {
             background: #f8f9fa;
             color: #333;
         }
-        .form-control:focus + .password-toggle-btn {
-            border-color: #86b7fe;
+
+        /* ================= Excel風シフト表：横スクロール最適化 ================= */
+        .shift-table-area-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            max-height: 550px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            background: #fff;
+            position: relative;
+        }
+
+        .shift-table {
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            background: #fff;
+            width: max-content;
+        }
+
+        .shift-table th,
+        .shift-table td {
+            border: 1px solid #ccc !important;
+            text-align: center;
+            vertical-align: middle;
+            padding: 6px 4px;
+        }
+
+        /* 従業員名と区分を左側にピタッと固定（Excel仕様） */
+        .sticky-col-name {
+            position: sticky;
+            left: 0;
+            background: #e2f0d9 !important;
+            z-index: 10;
+            font-weight: bold;
+            width: 130px;
+            min-width: 130px;
+        }
+
+        .sticky-col-io {
+            position: sticky;
+            left: 130px;
+            background: #fff !important;
+            z-index: 10;
+            width: 45px;
+            min-width: 45px;
+        }
+
+        th.sticky-col-name {
+            z-index: 12;
+            background: #f2f2f2 !important;
+        }
+
+        th.sticky-col-io {
+            z-index: 12;
+            background: #f2f2f2 !important;
+        }
+
+        .date-cell {
+            width: 55px;
+            min-width: 55px;
+        }
+
+        .shift-input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            text-align: center;
+            font-size: 0.8rem;
+            padding: 2px 0;
+        }
+
+        .shift-input:focus {
+            background: #fffdf0;
+            outline: 1px solid #0d6efd;
+            border-radius: 2px;
+        }
+
+        .minus-row {
+            background-color: #f2f2f2 !important;
+            font-weight: bold;
+        }
+
+        .minus-row .sticky-col-io {
+            background: #f2f2f2 !important;
+        }
+
+        /* 土日の背景色カラーリング */
+        .sat-bg {
+            background-color: #e8f4fd !important;
+        }
+
+        .sun-bg {
+            background-color: #fde8e8 !important;
+        }
+
+        /* 期間切り替えタブ専用のスタイル */
+        .period-tabs .nav-link {
+            padding: 0.4rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #495057;
+            border: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+        }
+
+        .period-tabs .nav-link.active {
+            background-color: #0d6efd;
+            color: #fff;
+            border-color: #0d6efd;
         }
     </style>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-dark bg-dark mb-4">
-        <div class="container">
-            <!-- セッションチェックを厳格化してエラーを防止 -->
-            <span class="navbar-brand">
-                管理者ダッシュボード
-                <th:block th:if="${session != null and session.user != null}">
-                    （ログイン中：<span th:text="${session.user.name}"></span>）
-                </th:block>
-            </span>
-            <div class="d-flex gap-2">
-                <a href="/partner" class="btn btn-outline-warning btn-sm">⬅ 打刻画面へ</a>
-                <a href="/logout" class="btn btn-outline-light btn-sm">ログアウト</a>
-            </div>
+
+<body>
+
+    <nav class="admin-top-header">
+        <span class="fw-bold fs-6">
+            管理者ダッシュボード
+            <th:block th:if="${session != null and session.user != null}">
+                （ログイン中：<span th:text="${session.user.name}"></span>）
+            </th:block>
+        </span>
+        <div class="d-flex gap-2">
+            <a href="/partner" class="btn btn-outline-warning btn-sm fw-bold">⬅ 打刻画面へ</a>
+            <a href="/logout" class="btn btn-outline-light btn-sm">ログアウト</a>
         </div>
     </nav>
 
-    <div class="container">
-        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
-        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+    <div class="container-fluid mt-3 px-4">
+        <div th:if="${error}" class="alert alert-danger mb-0" th:text="${error}"></div>
+        <div th:if="${success}" class="alert alert-success mb-0" th:text="${success}"></div>
+    </div>
 
-        <div class="row">
-            <!-- 左サイドバー: ユーザー管理 -->
-            <div class="col-md-3">
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-primary text-white">新規ユーザー登録</div>
-                    <div class="card-body">
-                        <form action="/admin/register" method="post" autocomplete="off">
-                            <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
-                            <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
-                            <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
-                            <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
-                            
-                            <div class="mb-2">
-                                <input type="text" name="name" id="regName" class="form-control" placeholder="氏名" required autocomplete="off">
-                            </div>
-                            
-                            <div class="input-group mb-2">
-                                <input type="password" name="password" id="regPassword" class="form-control" placeholder="パスワード" required autocomplete="new-password">
-                                <button class="btn password-toggle-btn" type="button" id="toggleRegPassword">
-                                    <i class="bi bi-eye-slash" id="regEyeIcon"></i>
-                                </button>
-                            </div>
+    <div class="admin-layout">
 
-                            <select name="role" class="form-select mb-3">
-                                <option value="PARTNER">パートナー社員</option>
-                                <option value="ADMIN">管理者</option>
-                            </select>
-                            <button type="submit" class="btn btn-primary w-100">登録</button>
-                        </form>
-                    </div>
+        <aside class="admin-sidebar">
+            <div class="sidebar-menu nav flex-column nav-pills" id="adminTab" role="tablist">
+                <button class="nav-link active text-start btn" id="history-tab" data-bs-toggle="pill"
+                    data-bs-target="#history-pane" type="button" role="tab">
+                    <i class="bi bi-clock-history"></i> 勤怠履歴管理
+                </button>
+                <button class="nav-link text-start btn" id="shift-tab" data-bs-toggle="pill"
+                    data-bs-target="#shift-pane" type="button" role="tab">
+                    <i class="bi bi-calendar-week"></i> シフト作成・管理
+                </button>
+            </div>
+
+            <hr class="my-1 text-muted">
+
+            <div class="sidebar-card">
+                <div class="sidebar-card-header bg-primary text-white">新規ユーザー登録</div>
+                <div class="sidebar-card-body p-3">
+                    <form action="/admin/register" method="post" autocomplete="off">
+                        <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
+                        <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
+                        <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
+                        <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
+
+                        <div class="mb-2">
+                            <input type="text" name="name" id="regName" class="form-control form-control-sm"
+                                placeholder="氏名" required>
+                        </div>
+                        <div class="input-group mb-2">
+                            <input type="password" name="password" id="regPassword" class="form-control form-control-sm"
+                                placeholder="パスワード" required autocomplete="new-password">
+                            <button class="btn btn-sm password-toggle-btn" type="button" id="toggleRegPassword">
+                                <i class="bi bi-eye-slash" id="regEyeIcon"></i>
+                            </button>
+                        </div>
+                        <select name="role" class="form-select form-select-sm mb-3">
+                            <option value="PARTNER">パートナー社員</option>
+                            <option value="ADMIN">管理者</option>
+                        </select>
+                        <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">登録</button>
+                    </form>
                 </div>
+            </div>
 
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-white fw-bold">従業員管理</div>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between align-items-center" th:each="u : ${userList}">
-                            <span>
+            <div class="sidebar-card">
+                <div class="sidebar-card-header bg-white border-bottom fw-bold text-dark">従業員管理</div>
+                <div class="employee-list-scroll">
+                    <ul class="list-group list-group-flush" style="font-size: 0.85rem;">
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3"
+                            th:each="u : ${userList}">
+                            <div>
                                 <span class="fw-bold" th:text="${u.name}"></span>
-                                <span class="text-muted small">（<span th:text="${u.userId}"></span>）</span>
-                                <span th:if="${u.role == 'ADMIN'}" class="badge bg-warning text-dark ms-1">Admin</span>
-                            </span>
-                            <button class="btn btn-outline-danger btn-sm" 
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#deleteModal"
-                                    th:data-id="${u.id}" 
-                                    th:data-name="${u.name}"
-                                    onclick="setDeleteTarget(this)">
+                                <div class="text-muted small">ID: <span th:text="${u.userId}"></span></div>
+                                <span th:if="${u.role == 'ADMIN'}" class="badge bg-warning text-dark"
+                                    style="font-size: 0.65rem; padding: 2px 4px;">Admin</span>
+                            </div>
+                            <button class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;"
+                                data-bs-toggle="modal" data-bs-target="#deleteModal" th:data-id="${u.id}"
+                                th:data-name="${u.name}" onclick="setDeleteTarget(this)">
                                 削除
                             </button>
                         </li>
                     </ul>
                 </div>
             </div>
+        </aside>
 
-            <!-- 右メイン: 打刻履歴 -->
-            <div class="col-md-9">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-white">
-                        <div class="fw-bold mb-2">打刻履歴管理</div>
-                        <form action="/admin" method="get" id="filterForm" class="d-flex flex-wrap align-items-center gap-3 bg-light p-2 rounded border">
-                            <div class="d-flex align-items-center gap-1">
-                                <span class="small fw-bold text-muted text-nowrap">従業員:</span>
-                                <select name="userId" class="form-select form-select-sm" style="width: 150px;" onchange="document.getElementById('filterForm').submit()">
-                                    <option value="">全員を表示</option>
-                                    <option th:each="u : ${userList}" th:value="${u.userId}" th:text="${u.name} + ' (' + ${u.userId} + ')'" th:selected="${u.userId == selectedUserId}"></option>
-                                </select>
+        <main class="admin-main-content">
+            <div class="tab-content" id="adminTabContent">
+
+                <div class="tab-pane fade show active" id="history-pane" role="tabpanel">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white border-bottom p-3">
+                            <div class="fw-bold mb-2 fs-5">打刻履歴管理</div>
+                            <form action="/admin" method="get" id="filterForm"
+                                class="d-flex flex-wrap align-items-center gap-3 bg-light p-3 rounded border">
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="small fw-bold text-muted text-nowrap">従業員:</span>
+                                    <select name="userId" class="form-select form-select-sm" style="width: 150px;"
+                                        onchange="document.getElementById('filterForm').submit()">
+                                        <option value="">全員を表示</option>
+                                        <option th:each="u : ${userList}" th:value="${u.userId}"
+                                            th:text="${u.name} + ' (' + ${u.userId} + ')'"
+                                            th:selected="${u.userId == selectedUserId}"></option>
+                                    </select>
+                                </div>
+                                <div class="d-flex align-items-center gap-1 border-start ps-3">
+                                    <span class="small fw-bold text-muted text-nowrap">月:</span>
+                                    <input type="month" name="month" id="monthInput" th:value="${selectedMonth}"
+                                        class="form-control form-control-sm" onchange="onMonthChange()">
+                                </div>
+                                <div class="d-flex align-items-center gap-1 border-start ps-3">
+                                    <span class="small fw-bold text-muted text-nowrap">日付:</span>
+                                    <input type="date" name="startDate" id="startDateInput"
+                                        th:value="${selectedStartDate}" class="form-control form-control-sm"
+                                        onchange="onDateChange()">
+                                    <span class="text-muted">～</span>
+                                    <input type="date" name="endDate" id="endDateInput" th:value="${selectedEndDate}"
+                                        class="form-control form-control-sm" onchange="onDateChange()">
+                                </div>
+                                <div class="ms-auto">
+                                    <a href="/admin" class="btn btn-outline-secondary btn-sm">クリア</a>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div
+                            class="card-body border-bottom py-2 bg-white d-flex justify-content-between align-items-center">
+                            <div>
+                                <button type="button" class="btn btn-success btn-sm fw-bold shadow-sm"
+                                    data-bs-toggle="modal" data-bs-target="#createAttendanceModal">
+                                    ➕ 新規打刻登録
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm fw-bold shadow-sm ms-2"
+                                    id="deleteModeBtn" onclick="toggleDeleteMode()">
+                                    🗑️ 削除モードON
+                                </button>
                             </div>
-                            <div class="d-flex align-items-center gap-1 border-start ps-3">
-                                <span class="small fw-bold text-muted text-nowrap">月:</span>
-                                <input type="month" name="month" id="monthInput" th:value="${selectedMonth}" class="form-control form-control-sm" onchange="onMonthChange()">
+                            <div>
+                                <button type="submit" form="deleteForm" id="executeDeleteBtn"
+                                    class="btn btn-danger btn-sm fw-bold shadow-sm d-none"
+                                    onclick="return confirm('選択した項目を削除しますか？')">
+                                    チェックした項目を削除
+                                </button>
                             </div>
-                            <div class="d-flex align-items-center gap-1 border-start ps-3">
-                                <span class="small fw-bold text-muted text-nowrap">日付:</span>
-                                <input type="date" name="startDate" id="startDateInput" th:value="${selectedStartDate}" class="form-control form-control-sm" onchange="onDateChange()">
-                                <span class="text-muted">～</span>
-                                <input type="date" name="endDate" id="endDateInput" th:value="${selectedEndDate}" class="form-control form-control-sm" onchange="onDateChange()">
-                            </div>
-                            <div class="ms-auto">
-                                <a href="/admin" class="btn btn-outline-secondary btn-sm">クリア</a>
-                            </div>
+                        </div>
+
+                        <form id="deleteForm" action="/admin/delete-attendances" method="post">
+                            <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
+                            <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
+                            <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
+                            <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
                         </form>
-                    </div>
 
-                    <div class="card-body border-bottom py-2 bg-white d-flex justify-content-between align-items-center">
-                        <div>
-                            <button type="button" class="btn btn-success btn-sm fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#createAttendanceModal">
-                                ➕ 新規打刻登録
-                            </button>
-                            <button type="button" class="btn btn-outline-danger btn-sm fw-bold shadow-sm ms-2" id="deleteModeBtn" onclick="toggleDeleteMode()">
-                                🗑️ 削除モードON
-                            </button>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="delete-col d-none text-center" style="width: 5%;">
+                                            <input type="checkbox" id="selectAll" class="form-check-input"
+                                                onclick="toggleAllCheckboxes(this)">
+                                        </th>
+                                        <th style="width: 20%;">名前(ID)</th>
+                                        <th style="width: 80%;">勤務実績 / 修正フォーム</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="h : ${histories}">
+                                        <td class="delete-col d-none text-center">
+                                            <input class="form-check-input attendance-checkbox" type="checkbox"
+                                                name="attendanceIds" th:value="${h.id}" form="deleteForm">
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold text-dark fs-6" th:text="${h.userName}"></span><br>
+                                            <small class="text-muted">ID: <span th:text="${h.userId}"></span></small>
+                                        </td>
+                                        <td>
+                                            <div class="mb-2">
+                                                <span class="badge bg-secondary mb-1">記録</span><br>
+                                                <span class="fs-6 fw-bold text-dark">
+                                                    <span
+                                                        th:text="${#temporals.format(h.startTime, 'yyyy/MM/dd HH:mm')}"></span>
+                                                    <span class="text-muted mx-1">～</span>
+                                                    <span
+                                                        th:text="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy/MM/dd HH:mm') : '未退勤'}"></span>
+                                                </span>
+                                                <span class="ms-3 text-muted fw-bold small">休憩:</span>
+                                                <span class="badge bg-info text-dark"
+                                                    th:text="${h.breakTimeDisplay}"></span>
+                                                <span class="ms-2 text-muted fw-bold small">実労働:</span>
+                                                <span class="badge bg-success" th:text="${workTime}"></span>
+                                            </div>
+
+                                            <div class="edit-panel shadow-sm">
+                                                <form action="/admin/edit" method="post"
+                                                    class="d-flex align-items-center gap-2 m-0 flex-wrap">
+                                                    <input type="hidden" name="filterUserId"
+                                                        th:value="${selectedUserId}">
+                                                    <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
+                                                    <input type="hidden" name="filterStartDate"
+                                                        th:value="${selectedStartDate}">
+                                                    <input type="hidden" name="filterEndDate"
+                                                        th:value="${selectedEndDate}">
+                                                    <input type="hidden" name="id" th:value="${h.id}">
+
+                                                    <span class="text-muted small fw-bold">修正:</span>
+                                                    <input type="datetime-local" name="startTime"
+                                                        th:value="${#temporals.format(h.startTime, 'yyyy-MM-dd''T''HH:mm')}"
+                                                        class="form-control form-control-sm" style="width: auto;">
+                                                    <span class="text-muted small">～</span>
+                                                    <input type="datetime-local" name="endTime"
+                                                        th:value="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy-MM-dd''T''HH:mm') : ''}"
+                                                        class="form-control form-control-sm" style="width: auto;">
+                                                    <span class="text-muted small ms-2 fw-bold">休憩(分):</span>
+                                                    <input type="number" name="breakMinutes"
+                                                        th:value="${h.calculatedBreakMinutes}"
+                                                        class="form-control form-control-sm" style="width: 70px;"
+                                                        min="0">
+                                                    <button type="submit"
+                                                        class="btn btn-warning btn-sm fw-bold shadow-sm ms-2 text-dark">上書き保存</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr th:if="${#lists.isEmpty(histories)}">
+                                        <td colspan="3" class="text-center text-muted py-5">履歴が見つかりません</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
-                        <div>
-                            <button type="submit" form="deleteForm" id="executeDeleteBtn" class="btn btn-danger btn-sm fw-bold shadow-sm d-none" onclick="return confirm('選択した項目を削除しますか？')">
-                                チェックした項目を削除
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <form id="deleteForm" action="/admin/delete-attendances" method="post">
-                        <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
-                        <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
-                        <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
-                        <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
-                    </form>
-
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="delete-col d-none text-center" style="width: 5%;">
-                                        <input type="checkbox" id="selectAll" class="form-check-input" onclick="toggleAllCheckboxes(this)">
-                                    </th>
-                                    <th style="width: 15%;">名前(ID)</th>
-                                    <th style="width: 80%;">勤務実績 / 修正フォーム</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr th:each="h : ${histories}">
-                                    <td class="delete-col d-none text-center">
-                                        <input class="form-check-input attendance-checkbox" type="checkbox" name="attendanceIds" th:value="${h.id}" form="deleteForm">
-                                    </td>
-                                    <td>
-                                        <span class="fw-bold" th:text="${h.userName}"></span><br>
-                                        <small class="text-muted">ID: <span th:text="${h.userId}"></span></small>
-                                    </td>
-                                    <td>
-                                        <div class="mb-2">
-                                            <span class="badge bg-secondary mb-1">記録</span><br>
-                                            <span class="fs-6 fw-bold text-dark">
-                                                <span th:text="${#temporals.format(h.startTime, 'yyyy/MM/dd HH:mm')}"></span>
-                                                <span class="text-muted mx-1">～</span>
-                                                <span th:text="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy/MM/dd HH:mm') : '未退勤'}"></span>
-                                            </span>
-                                            <span class="ms-3 text-muted fw-bold small">休憩:</span>
-                                            <span class="badge bg-info text-dark" th:text="${h.breakTimeDisplay}"></span>
-                                            <span class="ms-2 text-muted fw-bold small">実労働:</span>
-                                            <span class="badge bg-success" th:text="${h.workTime}"></span>
-                                        </div>
-
-                                        <div class="edit-panel">
-                                            <form action="/admin/edit" method="post" class="d-flex align-items-center gap-2 m-0 flex-wrap">
-                                                <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
-                                                <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
-                                                <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
-                                                <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
-                                                
-                                                <input type="hidden" name="id" th:value="${h.id}">
-                                                <span class="text-muted small fw-bold">修正:</span>
-                                                <input type="datetime-local" name="startTime" th:value="${#temporals.format(h.startTime, 'yyyy-MM-dd''T''HH:mm')}" class="form-control form-control-sm" style="width: auto;">
-                                                <span class="text-muted small">～</span>
-                                                <input type="datetime-local" name="endTime" th:value="${h.endTime != null ? #temporals.format(h.endTime, 'yyyy-MM-dd''T''HH:mm') : ''}" class="form-control form-control-sm" style="width: auto;">
-                                                
-                                                <span class="text-muted small ms-2 fw-bold">休憩(分):</span>
-                                                <input type="number" name="breakMinutes" th:value="${h.calculatedBreakMinutes}" class="form-control form-control-sm" style="width: 70px;" min="0">
-                                                
-                                                <button type="submit" class="btn btn-warning btn-sm fw-bold shadow-sm ms-2">上書き保存</button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr th:if="${#lists.isEmpty(histories)}">
-                                    <td colspan="3" class="text-center text-muted py-4">履歴が見つかりません</td>
-                                </tr>
-                            </tbody>
-                        </table>
                     </div>
                 </div>
+
+                <div class="tab-pane fade" id="shift-pane" role="tabpanel">
+                    <div class="card shadow-sm border-0">
+                        <div
+                            class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold fs-5 mb-1">📅 シフト作成・管理（マトリックス形式）</div>
+                                <p class="text-muted small mb-0">直接編集して調整可能です。右側のエリアを横スクロールできます。</p>
+                            </div>
+                            <button type="submit" form="shiftMatrixForm" class="btn btn-primary fw-bold shadow-sm">
+                                <i class="bi bi-save"></i> シフト変更を保存する
+                            </button>
+                        </div>
+
+                        <div class="card-body bg-white p-3">
+                            <div class="mb-3 d-flex align-items-center gap-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-bold small text-muted text-nowrap">表示月:</span>
+                                    <input type="month" id="shiftMonthSelect" name="month"
+                                        th:value="${selectedMonth != null ? selectedMonth : '2026-05'}"
+                                        class="form-control form-control-sm" style="width: 160px;"
+                                        onchange="updateShiftCalendarHeaders()">
+                                </div>
+
+                                <ul class="nav nav-pills period-tabs" id="periodTab" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="first-period-btn" type="button"
+                                            onclick="switchPeriod(1)">1 〜 15日</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="second-period-btn" type="button"
+                                            onclick="switchPeriod(2)">16 〜 末日</button>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="shift-table-area-wrapper">
+                                <form id="shiftMatrixForm" action="/admin/save-shifts" method="post">
+                                    <table class="shift-table">
+                                        <thead>
+                                            <tr id="tableHeaderDays">
+                                                <th class="sticky-col-name" rowspan="2">従業員名</th>
+                                                <th class="sticky-col-io" rowspan="2">区分</th>
+                                            </tr>
+                                            <tr id="tableHeaderSub">
+                                            </tr>
+                                        </thead>
+                                        <tbody id="shiftTableBody">
+                                            <th:block th:each="u : ${userList}">
+                                                <tr th:data-user-id="${u.userId}" data-type="in">
+                                                    <td class="sticky-col-name" rowspan="2" th:text="${u.name}">従業員名
+                                                    </td>
+                                                    <td class="sticky-col-io text-primary fw-bold">入</td>
+                                                </tr>
+                                                <tr th:data-user-id="${u.userId}" data-type="out">
+                                                    <td class="sticky-col-io text-danger fw-bold">出</td>
+                                                </tr>
+                                            </th:block>
+
+                                            <tr class="minus-row" data-type="minus">
+                                                <td class="sticky-col-name">不足人数</td>
+                                                <td class="sticky-col-io text-dark">欠</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </form>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
             </div>
-        </div>
+        </main>
     </div>
 
-    <!-- モーダル: 新規打刻登録 -->
     <div class="modal fade" id="createAttendanceModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -241,12 +563,13 @@
                         <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
                         <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
                         <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
-                        
+
                         <div class="mb-3">
                             <label class="form-label fw-bold">対象ユーザー</label>
                             <select name="targetUserId" class="form-select" required>
                                 <option value="" disabled selected>選択してください</option>
-                                <option th:each="u : ${userList}" th:value="${u.userId}" th:text="${u.name} + ' (' + ${u.userId} + ')'"></option>
+                                <option th:each="u : ${userList}" th:value="${u.userId}"
+                                    th:text="${u.name} + ' (' + ${u.userId} + ')'"></option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -254,7 +577,7 @@
                             <input type="datetime-local" name="startTime" class="form-control" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-bold">退勤時間（未退勤の場合は空欄）</label>
+                            <label class="form-label fw-bold">退勤時間</label>
                             <input type="datetime-local" name="endTime" class="form-control">
                         </div>
                         <div class="mb-3">
@@ -263,7 +586,7 @@
                         </div>
                         <div class="d-flex justify-content-end gap-2">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                            <button type="submit" class="btn btn-success">登録する</button>
+                            <button type="submit" class="btn btn-success fw-bold">登録する</button>
                         </div>
                     </form>
                 </div>
@@ -271,48 +594,96 @@
         </div>
     </div>
 
-    <!-- モーダル: ユーザー削除確認 -->
     <div class="modal fade" id="deleteModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title">ユーザー削除の確認</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>本当にユーザー <strong id="deleteTargetName"></strong> を削除しますか？<br>
-                        <span class="text-danger small">※このユーザーの勤怠データもすべて削除されます。</span></p>
-                        
-                        <form action="/admin/delete-user" method="post">
-                            <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
-                            <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
-                            <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
-                            <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
-                            
-                            <input type="hidden" name="targetId" id="deleteTargetId">
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">管理者のパスワードを入力</label>
-                                <input type="password" name="adminPassword" class="form-control" required>
-                            </div>
-                            <div class="d-flex justify-content-end gap-2">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                                <button type="submit" class="btn btn-danger">削除実行</button>
-                            </div>
-                        </form>
-                    </div>
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">ユーザー削除の確認</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>本当にユーザー <strong id="deleteTargetName"></strong> を削除しますか？<br>
+                        <span class="text-danger small">※このユーザーの勤怠データもすべて削除されます。</span>
+                    </p>
+
+                    <form action="/admin/delete-user" method="post">
+                        <input type="hidden" name="filterUserId" th:value="${selectedUserId}">
+                        <input type="hidden" name="filterMonth" th:value="${selectedMonth}">
+                        <input type="hidden" name="filterStartDate" th:value="${selectedStartDate}">
+                        <input type="hidden" name="filterEndDate" th:value="${selectedEndDate}">
+                        <input type="hidden" name="targetId" id="deleteTargetId">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">管理者のパスワードを入力</label>
+                            <input type="password" name="adminPassword" class="form-control" required>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                            <button type="submit" class="btn btn-danger">削除実行</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // --- 1. 新規ユーザー登録のパスワード表示切り替え ---
+    <script th:inline="javascript">
+        let currentPeriodSection = 1;
+        const weekDaysJa = ['日', '月', '火', '水', '木', '金', '土'];
+
+        // 💡 1. DBから届いた初期データを画面表示用に保持（これは弄らない）
+        const dbShifts = /*[[${savedShifts}]]*/ {};
+
+        // 💡 2. ユーザーが新しく変更したマス「だけ」を記録する用の空っぽのメモリ
+        let temporaryShiftStorage = {};
+
+        // 🧪 【デバッグ用】Javaからどんなキー名でデータが届いているかブラウザのF12で確認する
+        console.log("★★DBから届いたシフトデータ一覧:", temporaryShiftStorage);
+
+        document.addEventListener('DOMContentLoaded', function () {
+            updateShiftCalendarHeaders();
+
+            // ================= 🛑 ここでエンターキーによる自動送信（誤通信）を完全にブロックします =================
+            const shiftForm = document.getElementById('shiftMatrixForm');
+            // ⭕ 【追加】シフト表のマスが書き換えられたら、そのマスだけを記憶する
+            // ⭕ 【修正】クラス名に 'shift-input' が「含まれていれば」通常行も不足人数行もすべて100%検知する
+            document.getElementById('shiftMatrixForm').addEventListener('change', function (e) {
+                if (e.target && e.target.classList && e.target.classList.contains('shift-input')) {
+                    const inputName = e.target.name;
+                    const inputValue = e.target.value;
+
+                    // 変更されたマスの名前と値をピンポイントで記録！
+                    temporaryShiftStorage[inputName] = inputValue;
+                }
+            });
+            if (shiftForm) {
+                shiftForm.addEventListener('keydown', function (e) {
+                    // 入力欄（input）でエンターキー（Key: 'Enter'）が押された場合
+                    if (e.target.classList.contains('shift-input') && e.key === 'Enter') {
+                        e.preventDefault(); // ブラウザの「勝手に送信する仕様」を絶対に差し止める
+                    }
+                });
+
+                // 💡 「シフト変更を保存する」ボタンがクリックされた時の送信前処理
+                // 💡 「シフト変更を保存する」ボタンがクリックされた時の送信前処理
+                // 💡 「シフト変更を保存する」ボタンがクリックされた時の送信前処理
+                shiftForm.addEventListener('submit', function (e) {
+                    // ⭕ フィルターは不要！ temporaryShiftStorage に入っている「変更されたデータ」だけをそのまま hidden にして全送信
+                    for (const [inputName, inputValue] of Object.entries(temporaryShiftStorage)) {
+                        if (!shiftForm.querySelector(`input[name="${inputName}"]`)) {
+                            const hiddenInput = document.createElement('input');
+                            hiddenInput.type = 'hidden';
+                            hiddenInput.name = inputName;
+                            hiddenInput.value = inputValue;
+                            shiftForm.appendChild(hiddenInput);
+                        }
+                    }
+                });
+            }
+
+            // パスワード表示切り替え
             const toggleRegPassword = document.getElementById('toggleRegPassword');
             const regPasswordField = document.getElementById('regPassword');
             const regEyeIcon = document.getElementById('regEyeIcon');
-
             if (toggleRegPassword && regPasswordField) {
                 toggleRegPassword.addEventListener('click', () => {
                     const type = regPasswordField.type === 'password' ? 'text' : 'password';
@@ -322,79 +693,190 @@
                 });
             }
 
-            // --- 2. 全角→半角変換ロジック (高精度版) ---
+            // 全角半角バリデーション
             const normalizeInput = (el) => {
                 const start = el.selectionStart;
                 const end = el.selectionEnd;
                 const value = el.value;
                 const result = value.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
-                
                 if (value !== result) {
                     el.value = result;
                     el.setSelectionRange(start, end);
                 }
             };
-
-            const targetFields = [document.getElementById('regName'), regPasswordField];
+            const regNameField = document.getElementById('regName');
+            const targetFields = [regNameField, regPasswordField];
             targetFields.forEach(field => {
                 if (!field) return;
-                field.addEventListener('input', (e) => {
-                    if (!e.isComposing) normalizeInput(field);
-                });
+                field.addEventListener('input', (e) => { if (!e.isComposing) normalizeInput(field); });
                 field.addEventListener('compositionend', () => normalizeInput(field));
                 field.addEventListener('blur', () => normalizeInput(field));
             });
         });
 
-        function setDeleteTarget(button) {
-            var id = button.getAttribute('data-id');
-            var name = button.getAttribute('data-name');
-            document.getElementById('deleteTargetId').value = id;
-            document.getElementById('deleteTargetName').textContent = name;
+        // 💡 現在画面上に表示されている全inputの値をメモリ（オブジェクト）に一時保存する関数
+        function saveCurrentInputsToStorage() {
+            const currentInputs = document.querySelectorAll('.shift-input');
+            currentInputs.forEach(input => {
+                if (input.name) {
+                    temporaryShiftStorage[input.name] = input.value;
+                }
+            });
         }
 
+        function switchPeriod(section) {
+            // 切り替える前に、今表示されている前半（または後半）の入力内容を記憶する
+            saveCurrentInputsToStorage();
+
+            currentPeriodSection = section;
+            document.getElementById('first-period-btn').classList.toggle('active', section === 1);
+            document.getElementById('second-period-btn').classList.toggle('active', section === 2);
+
+            // カレンダー再描画（ここで新しい日付のinputが生成される）
+            updateShiftCalendarHeaders();
+        }
+
+        // 📅 曜日出力＆土日背景色自動マッピング処理
+        function updateShiftCalendarHeaders() {
+            const monthVal = document.getElementById('shiftMonthSelect').value;
+            if (!monthVal) return;
+
+            const [year, month] = monthVal.split('-').map(Number);
+            const lastDayOfMonth = new Date(year, month, 0).getDate();
+
+            let startDay = 1;
+            let endDay = 15;
+
+            if (currentPeriodSection === 2) {
+                startDay = 16;
+                endDay = lastDayOfMonth;
+            }
+
+            const headerDaysTr = document.getElementById('tableHeaderDays');
+            const headerSubTr = document.getElementById('tableHeaderSub');
+
+            while (headerDaysTr.children.length > 2) { headerDaysTr.removeChild(headerDaysTr.lastChild); }
+            headerSubTr.innerHTML = '';
+
+            const dayMetaList = [];
+
+            for (let d = startDay; d <= endDay; d++) {
+                const dateObj = new Date(year, month - 1, d);
+                const dayOfWeekNum = dateObj.getDay();
+                const dayOfWeekStr = weekDaysJa[dayOfWeekNum];
+
+                let bgClass = '';
+                if (dayOfWeekNum === 6) bgClass = 'sat-bg';
+                if (dayOfWeekNum === 0) bgClass = 'sun-bg';
+
+                dayMetaList.push({ dayNum: d, wStr: dayOfWeekStr, bgClass: bgClass });
+
+                const thDay = document.createElement('th');
+                thDay.className = 'date-cell';
+                if (bgClass) thDay.classList.add(bgClass);
+                thDay.textContent = d;
+                headerDaysTr.appendChild(thDay);
+
+                const thSub = document.createElement('th');
+                thSub.className = 'date-cell';
+                if (bgClass) thSub.classList.add(bgClass);
+                thSub.textContent = dayOfWeekStr;
+                headerSubTr.appendChild(thSub);
+            }
+
+            const rows = document.querySelectorAll('#shiftTableBody tr');
+            rows.forEach(row => {
+                const type = row.getAttribute('data-type');
+                const userId = row.getAttribute('th:data-user-id') || row.getAttribute('data-user-id');
+
+                const fixedColCount = (type === 'minus' || row.cells[0].rowSpan === 2) ? 2 : 1;
+                while (row.cells.length > fixedColCount) {
+                    row.deleteCell(row.cells.length - 1);
+                }
+
+                dayMetaList.forEach(meta => {
+                    const td = document.createElement('td');
+                    td.className = 'date-cell';
+                    if (meta.bgClass) td.classList.add(meta.bgClass);
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+
+                    if (type === 'minus') {
+                        input.className = 'shift-input fw-bold text-center';
+                    } else {
+                        input.className = 'shift-input';
+                    }
+
+                    const currentUserId = userId ? userId : 'minus';
+                    // =============================================================
+                    // ⭕ 【追記】画面上部のプルダウン（shiftMonthSelect）から現在の年月を取得
+                    // =============================================================
+                    const currentMonth = document.getElementById('shiftMonthSelect').value;
+
+                    // ⭕ 【修正】meta.dayNum を Number() で囲って、必ず「1」や「2」の形式（1桁）にする！
+                    const dayInt = Number(meta.dayNum);
+                    // ⭕ ハイフンは除去せず、通常行と同じ年月の形式（currentMonth）をそのまま使う
+                    let inputName = `shift_${type}_${currentUserId}_${currentMonth}_${dayInt}`;
+                    
+                    if (type === 'minus') {
+                        // 不足人数行の場合のキー名をJava（shift_minus_userId_yearMonth_day）のルールに完全固定
+                        inputName = `shift_minus_${currentUserId}_${currentMonth}_${dayInt}`;
+                    }
+
+                    input.name = inputName;
+
+                    // 💡 メモリ（一時ストレージ）に過去の入力値があればそれを復元、なければ空にする
+                    // 💡 【修正】DBから届いた初期データ（dbShifts）に値があればそれを復元する
+                    if (dbShifts && dbShifts[inputName] !== undefined) {
+                        input.value = dbShifts[inputName];
+                    } else {
+                        input.value = '';
+                    }
+
+                    td.appendChild(input);
+                    row.appendChild(td);
+                });
+            });
+        }
+
+        // 打刻管理用スクリプト群
+        function setDeleteTarget(button) {
+            document.getElementById('deleteTargetId').value = button.getAttribute('data-id');
+            document.getElementById('deleteTargetName').textContent = button.getAttribute('data-name');
+        }
         function onMonthChange() {
             document.getElementById('startDateInput').value = '';
             document.getElementById('endDateInput').value = '';
+            temporaryShiftStorage = {};
             document.getElementById('filterForm').submit();
         }
-
         function onDateChange() {
             document.getElementById('monthInput').value = '';
             var start = document.getElementById('startDateInput').value;
             var end = document.getElementById('endDateInput').value;
-            if (start && end) {
-                document.getElementById('filterForm').submit();
-            }
+            if (start && end) { document.getElementById('filterForm').submit(); }
         }
-
         let isDeleteMode = false;
         function toggleDeleteMode() {
             isDeleteMode = !isDeleteMode;
             const cols = document.querySelectorAll('.delete-col');
             const execBtn = document.getElementById('executeDeleteBtn');
             const modeBtn = document.getElementById('deleteModeBtn');
-
             cols.forEach(col => col.classList.toggle('d-none', !isDeleteMode));
             execBtn.classList.toggle('d-none', !isDeleteMode);
-
             if (isDeleteMode) {
-                modeBtn.classList.remove('btn-outline-danger');
-                modeBtn.classList.add('btn-danger');
-                modeBtn.textContent = '❌ 削除モードOFF';
+                modeBtn.classList.remove('btn-outline-danger'); modeBtn.classList.add('btn-danger'); modeBtn.textContent = '❌ 削除モードOFF';
             } else {
-                modeBtn.classList.remove('btn-danger');
-                modeBtn.classList.add('btn-outline-danger');
-                modeBtn.textContent = '🗑️ 削除モードON';
+                modeBtn.classList.remove('btn-danger'); modeBtn.classList.add('btn-outline-danger'); modeBtn.textContent = '🗑️ 削除モードON';
                 document.querySelectorAll('.attendance-checkbox').forEach(cb => cb.checked = false);
                 document.getElementById('selectAll').checked = false;
             }
         }
-
         function toggleAllCheckboxes(source) {
-            const checkboxes = document.querySelectorAll('.attendance-checkbox');
-            checkboxes.forEach(cb => cb.checked = source.checked);
+            document.querySelectorAll('.attendance-checkbox').forEach(cb => cb.checked = source.checked);
         }
     </script>
 </body>
+
 </html>
