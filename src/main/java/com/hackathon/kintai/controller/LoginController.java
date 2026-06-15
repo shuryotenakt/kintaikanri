@@ -138,4 +138,13 @@ public class LoginController {
 
         return "redirect:/?reset_success=true";
     }
+    // 🌐 国際化：言語切り替え用のGETエンドポイントを追加
+    @GetMapping("/change-lang")
+    public String changeLanguage(@RequestParam("locale") String locale, 
+                                 @RequestParam(value = "redirect", defaultValue = "/") String redirect) {
+        // ロケール変更はSpringの標準インターセプターがパラメーターを検知して自動で行います。
+        // 処理が終わったら、指定されたURL（ログイン画面である "/"）へリダイレクトします。
+        return "redirect:" + redirect;
+    }
+
 }
