@@ -45,14 +45,16 @@ public class LoginController {
             return "redirect:/?error=invalid_password";
         }
 
-        // 🌟 【先勝ち仕様】すでにDBにセッションIDが記録されているかチェック
+        // 🌟 【修正】すでにDBにセッションIDが記録されているかチェック
         if (user.getCurrentSessionId() != null && !user.getCurrentSessionId().isEmpty()) {
             if (!user.getCurrentSessionId().equals(session.getId())) {
-                System.out.println("【ブロック】すでに別端末でログイン中です。対象: " + user.getUserId());
-                return "redirect:/?error=already_logged_in";
+                // ブロックして追い出すのではなく、本人が正しいパスワードで入り直してきたので、
+                // 古いセッションを幽霊（ゴミデータ）とみなして、上書きを許可するログを出すだけにする
+                System.out.println("【救済】古いセッションIDを検知しましたが、正しい認証のため上書きします。対象: " + user.getUserId());
             }
         }
 
+        // 常に最新のセッションIDで上書き保存されるため、絶対にロックされなくなります
         user.setCurrentSessionId(session.getId());
         userRepo.save(user);
 

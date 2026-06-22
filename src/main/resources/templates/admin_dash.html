@@ -644,6 +644,7 @@
 
             // ================= 🛑 ここでエンターキーによる自動送信（誤通信）を完全にブロックします =================
             const shiftForm = document.getElementById('shiftMatrixForm');
+            
             // ⭕ 【追加】シフト表のマスが書き換えられたら、そのマスだけを記憶する
             // ⭕ 【修正】クラス名に 'shift-input' が「含まれていれば」通常行も不足人数行もすべて100%検知する
             document.getElementById('shiftMatrixForm').addEventListener('change', function (e) {
@@ -655,31 +656,64 @@
                     temporaryShiftStorage[inputName] = inputValue;
                 }
             });
-            if (shiftForm) {
-                shiftForm.addEventListener('keydown', function (e) {
-                    // 入力欄（input）でエンターキー（Key: 'Enter'）が押された場合
-                    if (e.target.classList.contains('shift-input') && e.key === 'Enter') {
-                        e.preventDefault(); // ブラウザの「勝手に送信する仕様」を絶対に差し止める
-                    }
-                });
 
-                // 💡 「シフト変更を保存する」ボタンがクリックされた時の送信前処理
-                // 💡 「シフト変更を保存する」ボタンがクリックされた時の送信前処理
-                // 💡 「シフト変更を保存する」ボタンがクリックされた時の送信前処理
-                shiftForm.addEventListener('submit', function (e) {
-                    // ⭕ フィルターは不要！ temporaryShiftStorage に入っている「変更されたデータ」だけをそのまま hidden にして全送信
-                    for (const [inputName, inputValue] of Object.entries(temporaryShiftStorage)) {
-                        if (!shiftForm.querySelector(`input[name="${inputName}"]`)) {
-                            const hiddenInput = document.createElement('input');
-                            hiddenInput.type = 'hidden';
-                            hiddenInput.name = inputName;
-                            hiddenInput.value = inputValue;
-                            shiftForm.appendChild(hiddenInput);
+            if (shiftForm) {
+                // 🛑 【修正】Enterキーによる誤送信を差し止め、エクセル風に真下のマスへフォーカス移動する
+                shiftForm.addEventListener('keydown', function (e) {
+                    if (e.target.classList.contains('shift-input') && e.key === 'Enter') {
+                        e.preventDefault(); // ブラウザの勝手なフォーム送信を阻止
+
+                        const currentTd = e.target.closest('td');
+                        const currentTr = currentTd.closest('tr');
+                        if (!currentTd || !currentTr) return;
+                        
+                        // 現在のマスが「左から何番目のセルか」を特定
+                        let colIndex = Array.from(currentTr.cells).indexOf(currentTd);
+
+                        // 1つ下の行を取得
+                        const nextTr = currentTr.nextElementSibling;
+
+                        if (nextTr) {
+                            // 💡 【ここが重要！】
+                            // 上の行に「従業員名」のセルがある場合（rowspan=2）、下の行はセルが1つ少なくなります。
+                            // 逆に、上の行に名前がなくて下の行にある場合や、不足人数行への移動など、
+                            // 行ごとの「セルの総数の差」を計算して、移動先の colIndex を自動補正します。
+                            const cellDifference = currentTr.cells.length - nextTr.cells.length;
+                            const targetColIndex = colIndex - cellDifference;
+
+                            const nextTd = nextTr.cells[targetColIndex];
+                            if (nextTd) {
+                                const nextInput = nextTd.querySelector('.shift-input');
+                                if (nextInput) {
+                                    nextInput.focus();
+                                    nextInput.select(); // 入力されていた文字を全選択（エクセル風）
+                                }
+                            }
                         }
                     }
                 });
-            }
 
+                // 💡 「シフト変更を保存する」ボタンがクリックされた時の送信前処理
+                shiftForm.addEventListener('submit', function (e) {
+                    // 1. 【追加】画面上の既存の入力欄のname属性を一旦すべて消す（全件送信を強制ストップ！）
+                    const inputs = shiftForm.querySelectorAll('.shift-input');
+                    inputs.forEach(input => {
+                        input.removeAttribute('name');
+                    });
+
+                    // 2. temporaryShiftStorage に入っている「本当に変更されたデータ」だけを hidden にして全送信
+                    for (const [inputName, inputValue] of Object.entries(temporaryShiftStorage)) {
+                        const hiddenInput = document.createElement('input');
+                        hiddenInput.type = 'hidden';
+                        hiddenInput.name = inputName;
+                        hiddenInput.value = inputValue;
+                        shiftForm.appendChild(hiddenInput);
+                    }
+                    
+                    // 3. 【追加】月や従業員などの検索フィルター用入力欄（hidden）は消さないように保証する
+                    // （もしフォーム内に元からある隠し要素があればそのまま送信されます）
+                });
+            }
             // パスワード表示切り替え
             const toggleRegPassword = document.getElementById('toggleRegPassword');
             const regPasswordField = document.getElementById('regPassword');
@@ -818,7 +852,7 @@
                     const dayInt = Number(meta.dayNum);
                     // ⭕ ハイフンは除去せず、通常行と同じ年月の形式（currentMonth）をそのまま使う
                     let inputName = `shift_${type}_${currentUserId}_${currentMonth}_${dayInt}`;
-                    
+
                     if (type === 'minus') {
                         // 不足人数行の場合のキー名をJava（shift_minus_userId_yearMonth_day）のルールに完全固定
                         inputName = `shift_minus_${currentUserId}_${currentMonth}_${dayInt}`;
@@ -828,7 +862,10 @@
 
                     // 💡 メモリ（一時ストレージ）に過去の入力値があればそれを復元、なければ空にする
                     // 💡 【修正】DBから届いた初期データ（dbShifts）に値があればそれを復元する
-                    if (dbShifts && dbShifts[inputName] !== undefined) {
+                    // ⭕ temporaryShiftStorage（手元の変更）を最優先し、なければ dbShifts（初期値）を見る
+                    if (temporaryShiftStorage && temporaryShiftStorage[inputName] !== undefined) {
+                        input.value = temporaryShiftStorage[inputName];
+                    } else if (dbShifts && dbShifts[inputName] !== undefined) {
                         input.value = dbShifts[inputName];
                     } else {
                         input.value = '';

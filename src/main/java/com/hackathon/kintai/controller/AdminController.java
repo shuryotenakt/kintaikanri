@@ -334,26 +334,32 @@ public class AdminController {
     @PostMapping("/save-shifts")
     public String saveShifts(HttpSession session, HttpServletResponse response,
                              @RequestParam Map<String, String> allParams,
-                             @RequestParam(required = false) String month, @RequestParam(required = false) String userId,
-                             @RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
+                             @RequestParam(required = false) String month, 
+                             @RequestParam(required = false) String userId,
+                             @RequestParam(required = false) String startDate, 
+                             @RequestParam(required = false) String endDate,
                              RedirectAttributes redirectAttributes) {
-        // 🌟 シフト保存ルートにも、管理者チェック & キャッシュ禁止ヘッダーをがっちり統合！
+        
+        // 🌟 管理者チェック & キャッシュ禁止ヘッダーをがっちり防御
         if (isInvalidAdminSession(session)) return "redirect:/?error=already_logged_in";
         setNoCacheHeaders(response);
 
         try {
+            // 🚀 JavaScriptから届いた「変更されたマス（hidden要素）」の数だけループが回ります
             for (Map.Entry<String, String> entry : allParams.entrySet()) {
                 String key = entry.getKey();
                 String value = entry.getValue();
 
+                // 1. シフト関連のキー（shift_から始まるもの）だけを狙い撃ち（CSRF等を除外）
                 if (key.startsWith("shift_")) {
                     String[] parts = key.split("_");
                     if (parts.length < 5) continue;
 
                     String type = parts[1]; // "in", "out", "minus"
-                    int dayNum = Integer.parseInt(parts[parts.length - 1]);
-                    String recordMonth = parts[parts.length - 2];
+                    int dayNum = Integer.parseInt(parts[parts.length - 1]); // 末尾は必ず日付
+                    String recordMonth = parts[parts.length - 2];           // 末尾から2番目は必ず年月
 
+                    // 2. ユーザーIDの復元（minus行の例外処理と、IDに「_」が含まれる場合の結合処理を維持）
                     String shiftUserId = "";
                     if ("minus".equals(type)) {
                         shiftUserId = "0";
@@ -366,17 +372,20 @@ public class AdminController {
                         shiftUserId = sb.toString();
                     }
 
+                    // 3. 変更があった該当日のデータをDBから1件だけピンポイント検索
                     Optional<Shift> existingShift = shiftRepo.findByUserIdAndYearMonthAndDay(shiftUserId, recordMonth, dayNum);
                     Shift shift;
                     if (existingShift.isPresent()) {
                         shift = existingShift.get();
                     } else {
+                        // DBにまだなければ新しくインスタンスを生成
                         shift = new Shift();
                         shift.setUserId(shiftUserId);
                         shift.setYearMonth(recordMonth);
                         shift.setDay(dayNum);
                     }
 
+                    // 4. 「入」「出」「不足人数」に応じて、書き換えられた値だけをピンポイントにセット
                     if ("in".equals(type)) {
                         shift.setShiftIn(value);
                     } else if ("out".equals(type)) {
@@ -385,14 +394,16 @@ public class AdminController {
                         shift.setShiftIn(value);
                     }
 
+                    // 5. DBに保存（変更分だけのコミットになるため超高速）
                     shiftRepo.save(shift);
                 }
             }
-            redirectAttributes.addFlashAttribute("success", "シフトを一括更新・保存しました。");
+            redirectAttributes.addFlashAttribute("success", "変更されたシフトを保存しました。");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "保存中にエラーが発生しました: " + e.getMessage());
         }
 
+        // 🌟 元の画面に戻ったとき、検索条件（月や従業員フィルター）が外れないように状態をキープ
         keepFilters(redirectAttributes, userId, month, startDate, endDate);
         return "redirect:/admin";
     }
