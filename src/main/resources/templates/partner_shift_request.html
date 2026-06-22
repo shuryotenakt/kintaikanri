@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{partner.shift.title}">Shift Request | Prime Worker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Inter', sans-serif; }
+        .navbar { background-color: #1a1a1a; }
+        .table-responsive { background: #fff; border-radius: 8px; border: 1px solid #eaeaea; }
+        .date-cell { min-width: 65px; text-align: center; vertical-align: middle; position: relative; }
+        .sat-bg { background-color: #eaf2ff !important; color: #0055ff; }
+        .sun-bg { background-color: #ffeaea !important; color: #ff3333; }
+        
+        /* 📝 シフト入力エリアのコンテナと入力欄 */
+        .input-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .shift-input {
+            width: 100%; border: 1px solid #ddd; text-align: center; 
+            padding: 4px; font-size: 0.85rem; border-radius: 4px; background-color: #fafafa;
+            cursor: pointer; caret-color: transparent;
+            user-select: none; /* 文字選択の青いハイライトを防止 */
+        }
+        .shift-input:focus { background-color: #fff; border-color: #000; outline: none; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+        
+        /* 🕒 クイック入力パネル */
+        .quick-input-panel {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: #ffffff; box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            padding: 15px; z-index: 1050;
+            display: none;
+            transition: border-top 0.3s, background-color 0.3s;
+        }
+        
+        .panel-mode-in { border-top: 4px solid #0d6efd !important; background-color: #f0f5ff; }
+        .panel-mode-out { border-top: 4px solid #dc3545 !important; background-color: #fff5f5; }
+
+        .quick-btn {
+            font-weight: 600; font-size: 0.9rem; padding: 10px 15px; border-radius: 6px;
+            position: relative;
+        }
+        
+        /* 🌟 マイボタン */
+        .custom-btn {
+            background-color: #fff3cd; color: #664d03; border: 1px solid #ffecb5;
+            padding-right: 30px !important;
+        }
+        .custom-btn:hover { background-color: #ffecb5; color: #664d03; }
+        .delete-btn {
+            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+            border: none; background: transparent; color: #b60000; font-size: 0.8rem;
+            cursor: pointer; padding: 0 2px;
+        }
+    </style>
+</head>
+<body class="pb-5">
+
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand font-weight-bold">Prime Worker</span>
+            <div class="navbar-nav ms-auto">
+                <a th:href="@{/logout}" class="btn btn-sm btn-outline-light" th:text="#{admin.header.btn.logout}">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link" th:href="@{/partner}">🏠 ホーム</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active" th:href="@{/partner/shift/request}" th:text="#{partner.menu.shiftRequest}">📅 シフト申請</a>
+            </li>
+        </ul>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="fw-bold m-0" th:text="#{partner.shift.header}">希望シフト申請</h3>
+            
+            <div class="d-flex gap-2">
+                <input type="month" id="shiftMonthSelect" class="form-control form-control-sm" style="width: 170px;" th:value="${currentMonth}" onchange="onMonthChange()">
+                
+                <div class="btn-group btn-group-sm">
+                    <button type="button" id="first-period-btn" class="btn btn-outline-dark active" onclick="switchPeriod(1)">前半 (1-15)</button>
+                    <button type="button" id="second-period-btn" class="btn btn-outline-dark" onclick="switchPeriod(2)">後半 (16-末)</button>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${param.success}" class="alert alert-success py-2">👍 希望シフトを送信しました。</div>
+
+        <form th:action="@{/partner/shift/submit}" method="post" id="shiftForm">
+            <input type="hidden" name="targetMonth" th:value="${currentMonth}">
+
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle m-0" style="table-layout: fixed;">
+                    <thead>
+                        <tr id="tableHeaderDays" class="table-light">
+                            <th style="width: 100px; text-align: center;">区分</th>
+                        </tr>
+                        <tr id="tableHeaderSub" class="table-light">
+                            <th style="text-align: center;">曜日</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shiftTableBody">
+                        <tr data-type="in" th:data-user-id="${user.userId}">
+                            <td class="fw-bold text-center bg-light text-primary">入 (Start)</td>
+                        </tr>
+                        <tr data-type="out" th:data-user-id="${user.userId}">
+                            <td class="fw-bold text-center bg-light text-danger">出 (End)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <small class="text-muted d-block mt-2">💡 入力欄を単押しで時間選択パネルが開き、<strong>ダブルクリック（2回タップ）でその場で個別消去</strong>できます。</small>
+
+            <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-dark px-4" th:text="#{partner.shift.btn.save}">希望シフトを送信する</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="quickInputPanel" class="quick-input-panel">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="fw-bold" id="quickPanelTitle" th:text="#{partner.shift.quick.title}">🕒 時間クイック入力</span>
+                <button type="button" class="btn-close" onclick="closeQuickPanel()"></button>
+            </div>
+            
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button type="button" class="btn btn-danger quick-btn px-4" onclick="clearActiveValue()"><i class="bi bi-trash3-fill me-1"></i>消去</button>
+                
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('08:00')">08:00</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('08:30')">08:30</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('09:00')">09:00</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('09:30')">09:30</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('10:00')">10:00</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('12:00')">12:00</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('13:00')">13:00</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('17:00')">17:00</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('18:00')">18:00</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('19:00')">19:00</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('20:00')">20:00</button>
+                <button type="button" class="btn btn-outline-dark quick-btn" onclick="setQuickValue('22:00')">22:00</button>
+                <button type="button" class="btn btn-secondary quick-btn" onclick="setQuickValue('休み')">休み</button>
+                
+                <span id="myButtonsContainer" class="d-flex gap-2 flex-wrap"></span>
+
+                <div class="d-flex align-items-center gap-1 ms-3 border-start ps-3 border-secondary border-opacity-25">
+                    <input type="time" id="customTimeInput" class="form-control form-control-sm" style="width: 100px;">
+                    <button type="button" class="btn btn-sm btn-success fw-bold" onclick="addNewCustomButton()">＋登録</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        const weekDaysJa = ['日', '月', '火', '水', '木', '金', '土'];
+        let currentPeriodSection = 1;
+        let temporaryShiftStorage = {};
+        let activeInputEl = null;
+
+        /*<![CDATA[*/
+        const dbShifts = /*[[${dbShifts}]]*/ {};
+        /*]]>*/
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateShiftCalendarHeaders();
+            loadMyCustomButtons();
+
+            // 💡 【新機能】送信ボタンが押されたときに、全日数の整合性をJavaScriptで瞬時にチェックする
+            const form = document.getElementById('shiftForm');
+            form.addEventListener('submit', (e) => {
+                
+                // 現在表示されている入力欄の値をすべて回収
+                saveCurrentInputsToStorage();
+
+                const monthVal = document.getElementById('shiftMonthSelect').value;
+                const [year, month] = monthVal.split('-').map(Number);
+                const lastDayOfMonth = new Date(year, month, 0).getDate();
+
+                // 表示中の期間だけでなく、1日〜末日までの「すべての入力」を総点検
+                const userId = form.querySelector('tr[data-type="in"]').getAttribute('th:data-user-id') || form.querySelector('tr[data-type="in"]').getAttribute('data-user-id');
+
+                for (let d = 1; d <= lastDayOfMonth; d++) {
+                    const inKey = `shift_in_${userId}_${monthVal}_${d}`;
+                    const outKey = `shift_out_${userId}_${monthVal}_${d}`;
+
+                    const timeIn = temporaryShiftStorage[inKey] || (dbShifts ? dbShifts[inKey] : '') || '';
+                    const timeOut = temporaryShiftStorage[outKey] || (dbShifts ? dbShifts[outKey] : '') || '';
+
+                    // 1. 両方入力されている場合の「時間の前後矛盾」チェック
+                    if (timeIn && timeOut && timeIn !== '休み' && timeOut !== '休み') {
+                        if (timeIn >= timeOut) {
+                            e.preventDefault(); // ❌ 送信を強制ストップ
+                            alert(`🚨 【入力エラー】\n${d}日の退勤時間（${timeOut}）が出勤時間（${timeIn}）より前の時間、または同じ時間になっています。修正してください。`);
+                            
+                            // もしエラー箇所が別セクション（前半/後半）にある場合は自動で切り替える
+                            if (d > 15 && currentPeriodSection === 1) switchPeriod(2);
+                            if (d <= 15 && currentPeriodSection === 2) switchPeriod(1);
+                            
+                            setTimeout(() => {
+                                const errorInput = document.querySelector(`input[name="${inKey}"]`);
+                                if (errorInput) errorInput.focus();
+                            }, 50);
+                            return false;
+                        }
+                    }
+                    
+                    // 2. 「片方だけ入力漏れ」のチェック（休み以外）
+                    if ((timeIn && !timeOut && timeIn !== '休み') || (!timeIn && timeOut && timeOut !== '休み')) {
+                        e.preventDefault();
+                        alert(`🚨 【入力エラー】\n${d}日の「入」と「出」のどちらか片方しか入力されていません。両方入力するか、完全に空欄にしてください。`);
+                        
+                        if (d > 15 && currentPeriodSection === 1) switchPeriod(2);
+                        if (d <= 15 && currentPeriodSection === 2) switchPeriod(1);
+                        return false;
+                    }
+                }
+            });
+        });
+
+        function saveCurrentInputsToStorage() {
+            document.querySelectorAll('.shift-input').forEach(input => {
+                if (input.name) temporaryShiftStorage[input.name] = input.value;
+            });
+        }
+
+        function switchPeriod(section) {
+            saveCurrentInputsToStorage();
+            currentPeriodSection = section;
+            document.getElementById('first-period-btn').classList.toggle('active', section === 1);
+            document.getElementById('second-period-btn').classList.toggle('active', section === 2);
+            closeQuickPanel();
+            updateShiftCalendarHeaders();
+        }
+
+        function updateShiftCalendarHeaders() {
+            const monthVal = document.getElementById('shiftMonthSelect').value;
+            if (!monthVal) return;
+
+            const [year, month] = monthVal.split('-').map(Number);
+            const lastDayOfMonth = new Date(year, month, 0).getDate();
+
+            let startDay = currentPeriodSection === 1 ? 1 : 16;
+            let endDay = currentPeriodSection === 1 ? 15 : lastDayOfMonth;
+
+            const headerDaysTr = document.getElementById('tableHeaderDays');
+            const headerSubTr = document.getElementById('tableHeaderSub');
+
+            while (headerDaysTr.children.length > 1) { headerDaysTr.removeChild(headerDaysTr.lastChild); }
+            headerSubTr.innerHTML = '<th style="text-align: center;">曜日</th>';
+
+            const dayMetaList = [];
+
+            for (let d = startDay; d <= endDay; d++) {
+                const dateObj = new Date(year, month - 1, d);
+                const dayOfWeekNum = dateObj.getDay();
+                const dayOfWeekStr = weekDaysJa[dayOfWeekNum];
+
+                let bgClass = dayOfWeekNum === 6 ? 'sat-bg' : (dayOfWeekNum === 0 ? 'sun-bg' : '');
+                dayMetaList.push({ dayNum: d, bgClass: bgClass });
+
+                const thDay = document.createElement('th');
+                thDay.className = `date-cell ${bgClass}`;
+                thDay.textContent = d;
+                headerDaysTr.appendChild(thDay);
+
+                const thSub = document.createElement('th');
+                thSub.className = `date-cell ${bgClass}`;
+                thSub.textContent = dayOfWeekStr;
+                headerSubTr.appendChild(thSub);
+            }
+
+            const rows = document.querySelectorAll('#shiftTableBody tr');
+            rows.forEach(row => {
+                const type = row.getAttribute('data-type');
+                const userId = row.getAttribute('th:data-user-id') || row.getAttribute('data-user-id');
+
+                while (row.cells.length > 1) { row.deleteCell(row.cells.length - 1); }
+
+                dayMetaList.forEach(meta => {
+                    const td = document.createElement('td');
+                    td.className = `date-cell ${meta.bgClass}`;
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'input-container';
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'shift-input';
+                    input.readOnly = true;
+
+                    const inputName = `shift_${type}_${userId}_${monthVal}_${Number(meta.dayNum)}`;
+                    input.name = inputName;
+
+                    if (temporaryShiftStorage[inputName] !== undefined) {
+                        input.value = temporaryShiftStorage[inputName];
+                    } else if (dbShifts && dbShifts[inputName] !== undefined) {
+                        input.value = dbShifts[inputName];
+                    } else {
+                        input.value = '';
+                    }
+
+                    input.addEventListener('focus', (e) => {
+                        activeInputEl = e.target;
+                        openQuickPanel(meta.dayNum, type);
+                    });
+
+                    input.addEventListener('dblclick', (e) => {
+                        e.preventDefault();
+                        input.value = '';
+                        temporaryShiftStorage[inputName] = '';
+                    });
+
+                    let lastTap = 0;
+                    input.addEventListener('touchend', (e) => {
+                        const currentTime = new Date().getTime();
+                        const tapLength = currentTime - lastTap;
+                        if (tapLength < 300 && tapLength > 0) {
+                            e.preventDefault();
+                            input.value = '';
+                            temporaryShiftStorage[inputName] = '';
+                        }
+                        lastTap = currentTime;
+                    });
+
+                    wrapper.appendChild(input);
+                    td.appendChild(wrapper);
+                    row.appendChild(td);
+                });
+            });
+        }
+
+        function openQuickPanel(dayNum, type) {
+            const panel = document.getElementById('quickInputPanel');
+            const title = document.getElementById('quickPanelTitle');
+            
+            panel.classList.remove('panel-mode-in', 'panel-mode-out');
+
+            if (type === 'in') {
+                panel.classList.add('panel-mode-in');
+                title.className = "fw-bold text-primary";
+                title.textContent = `🔵 ${dayNum}日 の【出勤（入）】希望時間をタップ`;
+            } else {
+                panel.classList.add('panel-mode-out');
+                title.className = "fw-bold text-danger";
+                title.textContent = `🔴 ${dayNum}日 の【退勤（出）】希望時間をタップ`;
+            }
+            
+            panel.style.display = 'block';
+        }
+
+        function closeQuickPanel() {
+            document.getElementById('quickInputPanel').style.display = 'none';
+            if (activeInputEl) activeInputEl.blur();
+        }
+
+        function setQuickValue(value) {
+            if (activeInputEl) {
+                activeInputEl.value = value;
+                temporaryShiftStorage[activeInputEl.name] = value;
+
+                const currentInputs = Array.from(document.querySelectorAll('.shift-input'));
+                const currentIndex = currentInputs.indexOf(activeInputEl);
+                
+                if (currentIndex >= 0 && currentIndex < currentInputs.length - 1) {
+                    currentInputs[currentIndex + 1].focus();
+                } else {
+                    closeQuickPanel();
+                }
+            }
+        }
+
+        function clearActiveValue() {
+            if (activeInputEl) {
+                activeInputEl.value = '';
+                temporaryShiftStorage[activeInputEl.name] = '';
+            }
+        }
+
+        function onMonthChange() {
+            const selectedMonth = document.getElementById('shiftMonthSelect').value;
+            if (selectedMonth) {
+                window.location.href = '/partner/shift/request?month=' + selectedMonth;
+            }
+        }
+
+        const STORAGE_KEY = 'partner_shift_my_buttons';
+
+        function loadMyCustomButtons() {
+            const container = document.getElementById('myButtonsContainer');
+            container.innerHTML = '';
+            let savedTimes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            savedTimes.sort();
+
+            savedTimes.forEach(time => {
+                const btnWrapper = document.createElement('div');
+                btnWrapper.className = 'position-relative d-inline-block';
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn custom-btn quick-btn';
+                btn.textContent = time;
+                btn.onclick = () => setQuickValue(time);
+
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'delete-btn';
+                delBtn.innerHTML = '<i class="bi bi-x-circle-fill"></i>';
+                delBtn.title = '削除';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteCustomButton(time);
+                };
+
+                btn.appendChild(delBtn);
+                btnWrapper.appendChild(btn);
+                container.appendChild(btnWrapper);
+            });
+        }
+
+        function addNewCustomButton() {
+            const timeInput = document.getElementById('customTimeInput');
+            const timeValue = timeInput.value;
+
+            if (!timeValue) {
+                alert('時間を指定してください。');
+                return;
+            }
+
+            let savedTimes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            if (savedTimes.includes(timeValue)) {
+                alert('この時間はすでに登録されています。');
+                return;
+            }
+
+            savedTimes.push(timeValue);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedTimes));
+            timeInput.value = '';
+            loadMyCustomButtons();
+        }
+
+        function deleteCustomButton(timeToRemove) {
+            let savedTimes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            savedTimes = savedTimes.filter(time => time !== timeToRemove);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedTimes));
+            loadMyCustomButtons();
+        }
+    </script>
+</body>
+</html>

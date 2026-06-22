@@ -21,17 +21,6 @@
         }
         .dropdown-menu { border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 
-        /* 二重ドロップダウン用のCSS */
-        .dropdown-submenu { position: relative; }
-        .dropdown-submenu > .dropdown-menu {
-            top: 0;
-            left: 100%;
-            margin-top: -1px;
-            display: none;
-        }
-        .dropdown-submenu:hover > .dropdown-menu {
-            display: block;
-        }
         #live-clock { font-family: 'Courier New', monospace; }
 
         /* 💡 期間検索フォーム用の追加スタイル */
@@ -64,6 +53,17 @@
         .form-control-password {
             border-radius: 8px 0 0 8px !important;
         }
+        
+        /* 📅 メニュータブ専用のスタイル */
+        .nav-tabs .nav-link {
+            color: #495057;
+            font-weight: 600;
+        }
+        .nav-tabs .nav-link.active {
+            color: #000 !important;
+            font-weight: 700;
+            border-bottom: 3px solid #6c757d;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
@@ -71,11 +71,12 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4" th:if="${session.user != null}">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-secondary mb-4">
         <div class="container">
             <span class="navbar-brand d-flex align-items-center">
-                ようこそ、<strong th:text="${session.user.name}" class="ms-1">ユーザー</strong> さん
-                <span class="badge bg-light text-dark ms-2">ID: [[${session.user.userId}]]</span>
+                ようこそ、<strong th:text="${session.user != null ? session.user.name : 'ユーザー'}" class="ms-1">ユーザー</strong> さん
+                <span class="badge bg-light text-dark ms-2" th:if="${session.user != null}">ID: [[${session.user.userId}]]</span>
                 <span class="badge ms-2" 
                     th:classappend="${status == 'WORK' ? 'bg-primary' : (status == 'REST' ? 'bg-warning' : 'bg-dark')}"
                     th:text="${status == 'WORK' ? '勤務中' : (status == 'REST' ? '休憩中' : '勤務外')}">
@@ -83,17 +84,7 @@
             </span>
 
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto ms-lg-3">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle btn btn-nav-custom btn-sm px-3 fw-bold mt-1" 
-                           href="#" role="button" data-bs-toggle="dropdown">
-                           📁 メニュー
-                        </a>
-                        <ul class="dropdown-menu shadow">
-                            <li><a class="dropdown-item disabled text-muted py-2" href="#">(その他機能追加予定)</a></li>
-                        </ul>
-                    </li>
-                </ul>
+                <ul class="navbar-nav me-auto"></ul>
 
                 <div class="navbar-nav ms-auto d-flex flex-row align-items-center gap-3">
                     <div class="nav-item dropdown">
@@ -106,7 +97,7 @@
                             <li><a class="dropdown-item py-2" href="#" data-bs-toggle="modal" data-bs-target="#pwModal">🔑 パスワード変更</a></li>
                         </ul>
                     </div>
-                    <a th:if="${session.user.role == 'ADMIN'}" href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">🔧 管理者</a>
+                    <a th:if="${session.user != null && session.user.role == 'ADMIN'}" href="/admin" class="btn btn-warning btn-sm fw-bold shadow-sm">🔧 管理者</a>
                     <a href="/logout" class="btn btn-outline-light btn-sm">ログアウト</a>
                 </div>
             </div>
@@ -114,6 +105,29 @@
     </nav>
 
     <div class="container">
+        
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link active" th:href="@{/partner}">🏠 ホーム (打刻)</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" th:href="@{/partner/shift/request}">
+                    <span th:text="#{partner.menu.shiftRequest}">📅 シフト申請</span>
+                </a>
+            </li>
+        </ul>
+
+        <div th:if="${showShiftAlert}" class="alert alert-danger d-flex align-items-center mb-4 shadow-sm border-0" role="alert" style="border-left: 6px solid #dc3545; background-color: #fff5f5;">
+            <i class="bi bi-exclamation-triangle-fill fs-3 text-danger me-3"></i>
+            <div>
+                <h5 class="alert-heading fw-bold m-0 mb-1 text-danger" style="font-size: 1.1rem;">⚠️ 来月分のシフトが未提出です</h5>
+                <p class="m-0 small text-dark">
+                    <strong th:text="${alertMonth}"></strong> 分の希望シフトデータがまだ送信されていません。
+                    25日を過ぎていますので、至急 <a th:href="@{/partner/shift/request(month=${alertMonth})}" class="alert-link text-decoration-underline fw-bold text-danger">📅 シフト申請画面</a> から希望時間を入力して送信してください。
+                </p>
+            </div>
+        </div>
+
         <div th:if="${success}" class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
             <span th:text="${success}"></span>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -149,9 +163,7 @@
             <div class="card-body py-3">
                 <form action="/partner" method="get" id="searchForm" class="d-flex align-items-center justify-content-center gap-3 flex-wrap">
                     <label for="rangePicker" class="fw-bold text-dark m-0">表示期間切り替え：</label>
-                    
                     <input type="text" id="rangePicker" class="form-control shadow-sm w-auto text-center fw-bold" placeholder="期間をドラッグまたは選択">
-                    
                     <input type="hidden" id="startDate" name="startDate" th:value="${startDate}">
                     <input type="hidden" id="endDate" name="endDate" th:value="${endDate}">
                 </form>
@@ -193,6 +205,10 @@
                         <h5 class="modal-title fs-6">パスワード更新</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title fs-6">パスワード更新</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
                     <div class="modal-body py-3">
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-muted">新しいパスワード</label>
@@ -227,9 +243,7 @@
             if(el) el.textContent = new Date().toLocaleTimeString('ja-JP', {hour12:false});
         }
         setInterval(updateClock, 1000); updateClock();
-    </script>
 
-    <script>
         function singleSubmit(form) {
             const btn = form.querySelector('button[type="submit"]');
             if (btn) {
@@ -240,33 +254,35 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // 💡 期間検索カレンダー（Flatpickr）の制御スクリプト
-            const savedStart = document.getElementById('startDate').value;
-            const savedEnd = document.getElementById('endDate').value;
+            const startDateEl = document.getElementById('startDate');
+            const endDateEl = document.getElementById('endDate');
+            const savedStart = startDateEl ? startDateEl.value : null;
+            const savedEnd = endDateEl ? endDateEl.value : null;
             
-            flatpickr("#rangePicker", {
-                locale: {
-                    ...flatpickr.l10ns.ja,
-                    rangeSeparator: " ～ "
-                },
-                mode: "range",
-                dateFormat: "Y-m-d",
-                defaultDate: (savedStart && savedEnd) ? [savedStart, savedEnd] : null,
-                onClose: function(selectedDates) {
-                    if (selectedDates.length === 2) {
-                        const tzOffset = selectedDates[0].getTimezoneOffset() * 60000;
-                        const startLocal = new Date(selectedDates[0].getTime() - tzOffset);
-                        const endLocal = new Date(selectedDates[1].getTime() - tzOffset);
-                        
-                        document.getElementById('startDate').value = startLocal.toISOString().slice(0, 10);
-                        document.getElementById('endDate').value = endLocal.toISOString().slice(0, 10);
-                        
-                        document.getElementById('searchForm').submit();
+            if (document.getElementById('rangePicker')) {
+                flatpickr("#rangePicker", {
+                    locale: {
+                        ...flatpickr.l10ns.ja,
+                        rangeSeparator: " ～ "
+                    },
+                    mode: "range",
+                    dateFormat: "Y-m-d",
+                    defaultDate: (savedStart && savedEnd) ? [savedStart, savedEnd] : null,
+                    onClose: function(selectedDates) {
+                        if (selectedDates.length === 2) {
+                            const tzOffset = selectedDates[0].getTimezoneOffset() * 60000;
+                            const startLocal = new Date(selectedDates[0].getTime() - tzOffset);
+                            const endLocal = new Date(selectedDates[1].getTime() - tzOffset);
+                            
+                            document.getElementById('startDate').value = startLocal.toISOString().slice(0, 10);
+                            document.getElementById('endDate').value = endLocal.toISOString().slice(0, 10);
+                            
+                            document.getElementById('searchForm').submit();
+                        }
                     }
-                }
-            });
+                });
+            }
 
-            // --- 🌟 目のマーク（表示切り替え）の共通設定 ---
             const setupToggle = (btnId, fieldId, iconId) => {
                 const btn = document.getElementById(btnId);
                 const field = document.getElementById(fieldId);
@@ -285,7 +301,6 @@
             setupToggle('toggleNewPassword', 'newPassword', 'eyeIconNew');
             setupToggle('toggleConfirmPassword', 'confirmPassword', 'eyeIconConfirm');
 
-            // --- モーダル内の全角→半角変換ロジックの適用 ---
             const normalizeInput = (el) => {
                 const start = el.selectionStart;
                 const end = el.selectionEnd;
