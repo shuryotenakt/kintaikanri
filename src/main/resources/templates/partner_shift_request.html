@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="#{partner.shift.title}">Shift Request | Prime Worker</title>
+    <title>希望シフト申請 | Prime Worker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
@@ -65,7 +65,7 @@
         <div class="container-fluid">
             <span class="navbar-brand font-weight-bold">Prime Worker</span>
             <div class="navbar-nav ms-auto">
-                <a th:href="@{/logout}" class="btn btn-sm btn-outline-light" th:text="#{admin.header.btn.logout}">Logout</a>
+                <a th:href="@{/logout}" class="btn btn-sm btn-outline-light">ログアウト</a>
             </div>
         </div>
     </nav>
@@ -77,12 +77,12 @@
                 <a class="nav-link" th:href="@{/partner}">🏠 ホーム</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link active" th:href="@{/partner/shift/request}" th:text="#{partner.menu.shiftRequest}">📅 シフト申請</a>
+                <a class="nav-link active" th:href="@{/partner/shift/request}">📅 シフト申請</a>
             </li>
         </ul>
 
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="fw-bold m-0" th:text="#{partner.shift.header}">希望シフト申請</h3>
+            <h3 class="fw-bold m-0">希望シフト申請</h3>
             
             <div class="d-flex gap-2">
                 <input type="month" id="shiftMonthSelect" class="form-control form-control-sm" style="width: 170px;" th:value="${currentMonth}" onchange="onMonthChange()">
@@ -122,7 +122,7 @@
             <small class="text-muted d-block mt-2">💡 入力欄を単押しで時間選択パネルが開き、<strong>ダブルクリック（2回タップ）でその場で個別消去</strong>できます。</small>
 
             <div class="mt-4 text-end">
-                <button type="submit" class="btn btn-dark px-4" th:text="#{partner.shift.btn.save}">希望シフトを送信する</button>
+                <button type="submit" class="btn btn-dark px-4">希望シフトを送信する</button>
             </div>
         </form>
     </div>
@@ -130,7 +130,7 @@
     <div id="quickInputPanel" class="quick-input-panel">
         <div class="container-fluid">
             <div class="d-flex align-items-center justify-content-between mb-2">
-                <span class="fw-bold" id="quickPanelTitle" th:text="#{partner.shift.quick.title}">🕒 時間クイック入力</span>
+                <span class="fw-bold" id="quickPanelTitle">🕒 時間クイック入力</span>
                 <button type="button" class="btn-close" onclick="closeQuickPanel()"></button>
             </div>
             
