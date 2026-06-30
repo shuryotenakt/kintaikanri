@@ -12,6 +12,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
@@ -101,23 +102,34 @@ public class PartnerController {
         model.addAttribute("titleLabel", titleLabel); 
 
         // ==========================================
-        // 🔔 【新機能】25日以降の「翌月分」シフト未提出アラートチェック
+        // 🔔 【完全コンプリート判定版】翌月分シフト提出チェック
         // ==========================================
         LocalDate today = LocalDate.now();
         if (today.getDayOfMonth() >= 25) {
-            // 💡 ターゲットを「翌月」の文字列（例：今が6月なら "2026-07"）にする
-            String nextMonthStr = today.plusMonths(1).format(DateTimeFormatter.ofPattern("yyyy-MM"));
+            // 翌月オブジェクトを生成（例: 2026-07）
+            LocalDate nextMonthDate = today.plusMonths(1);
+            String nextMonthStr = nextMonthDate.format(DateTimeFormatter.ofPattern("yyyy-MM"));
             
-            // shiftsテーブルから、この従業員の「翌月分」のデータが1件でもあるか探す
-            Optional<Shift> anyShift = shiftRepo.findAll().stream()
-                    .filter(s -> user.getUserId().equals(s.getUserId()) && nextMonthStr.equals(s.getYearMonth()))
-                    .findFirst();
+            // 💡 翌月が「合計で何日あるか（30日か、31日か）」を自動取得
+            int totalDaysInNextMonth = YearMonth.from(nextMonthDate).lengthOfMonth();
             
-            // 1件もデータが存在しない（未提出）の場合のみ、アラートを表示
-            if (anyShift.isEmpty()) {
-                model.addAttribute("showShiftAlert", true);
+            // 翌月分として「出勤時間(shiftIn)が入力されている日数」をカウント
+            long submittedDaysCount = shiftRepo.findAll().stream()
+                    .filter(s -> user.getUserId().equals(s.getUserId()) 
+                                && nextMonthStr.equals(s.getYearMonth())
+                                && s.getShiftIn() != null 
+                                && !s.getShiftIn().isEmpty())
+                    .count();
+            
+            // 💡 「翌月の日数」と「入力された日数」が完全に一致していない場合はアラートを出す
+            if (submittedDaysCount < totalDaysInNextMonth) {
+                model.addAttribute("showShiftAlert", Boolean.TRUE); 
                 model.addAttribute("alertMonth", nextMonthStr);
+            } else {
+                model.addAttribute("showShiftAlert", Boolean.FALSE);
             }
+        } else {
+            model.addAttribute("showShiftAlert", Boolean.FALSE); 
         }
 
         return "partner_dash";
