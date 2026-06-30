@@ -3,7 +3,7 @@ package com.hackathon.kintai.controller;
 import com.hackathon.kintai.model.User;
 import com.hackathon.kintai.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
-import jakarta.servlet.http.HttpServletResponse; // 💡追加
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -16,20 +16,18 @@ public class LoginController {
 
     @GetMapping("/")
     public String loginPage(HttpSession session, HttpServletResponse response) {
-        // 💡 戻るボタン対策：ログイン画面自体もキャッシュさせない
+        // 戻るボタン対策：ログイン画面自体もキャッシュさせない
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         response.setHeader("Pragma", "no-cache");
         response.setDateHeader("Expires", 0);
 
-        // 💡 ログイン済みのユーザーがタブを閉じて、またログインページを開いた場合の処理
+        // ログイン済みのユーザーがタブを閉じて、またログインページを開いた場合の処理
         User sessionUser = (User) session.getAttribute("user");
         if (sessionUser != null) {
             User dbUser = userRepo.findById(sessionUser.getId()).orElse(null);
             // DBのセッションIDと現在のブラウザのセッションIDが一致していれば、自動でダッシュボードへ移動
             if (dbUser != null && session.getId().equals(dbUser.getCurrentSessionId())) {
-                if ("ADMIN".equals(dbUser.getRole())) {
-                    return "redirect:/admin";
-                }
+                // 💡【修正】管理者であっても、最初は一律で勤怠ページへリダイレクトします
                 return "redirect:/partner";
             }
         }
@@ -45,31 +43,25 @@ public class LoginController {
             return "redirect:/?error=invalid_password";
         }
 
-        // 🌟 【修正】すでにDBにセッションIDが記録されているかチェック
+        // すでにDBにセッションIDが記録されているかチェック
         if (user.getCurrentSessionId() != null && !user.getCurrentSessionId().isEmpty()) {
             if (!user.getCurrentSessionId().equals(session.getId())) {
-                // ブロックして追い出すのではなく、本人が正しいパスワードで入り直してきたので、
-                // 古いセッションを幽霊（ゴミデータ）とみなして、上書きを許可するログを出すだけにする
                 System.out.println("【救済】古いセッションIDを検知しましたが、正しい認証のため上書きします。対象: " + user.getUserId());
             }
         }
 
-        // 常に最新のセッションIDで上書き保存されるため、絶対にロックされなくなります
+        // 常に最新のセッションIDで上書き保存
         user.setCurrentSessionId(session.getId());
         userRepo.save(user);
 
         session.setAttribute("user", user);
         
-        // 💡 管理者ロールの場合は管理者画面へ、それ以外はパートナー画面へリダイレクト
-        if ("ADMIN".equals(user.getRole())) {
-            return "redirect:/admin";
-        }
+        // 💡【修正】管理者ロールであっても、まずは全員勤怠画面（/partner）へ飛ばすように統一します
         return "redirect:/partner";
     }
 
     @RequestMapping(value = "/logout", method = {RequestMethod.GET, RequestMethod.POST})
     public String logout(HttpSession session, HttpServletResponse response) {
-        // 💡 ログアウト時にもキャッシュクリアヘッダーを付与
         response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         response.setHeader("Pragma", "no-cache");
         response.setDateHeader("Expires", 0);
@@ -83,7 +75,6 @@ public class LoginController {
             }
         }
         
-        // セッションを完全に無効化（サーバー側の保持をクリア）
         session.invalidate();
         return "redirect:/?logout";
     }
@@ -98,10 +89,6 @@ public class LoginController {
         return "全ユーザーのログイン状態をリセットし、ロックを解除しました。";
     }
 
-    // ==========================================
-    // パスワード再設定用の機能（サーバー側全角バリデーション追加）
-    // ==========================================
-    
     @GetMapping("/forgot-password")
     public String forgotPasswordPage() {
         return "forgot-password";
@@ -122,7 +109,6 @@ public class LoginController {
             return "redirect:/forgot-password?error=name_mismatch";
         }
 
-        // 🌟【セキュリティ強化】新パスワードに全角文字（半角の英数・記号以外）が含まれている場合はエラー
         if (newPassword.matches(".*[^\\x21-\\x7e].*")) {
             return "redirect:/forgot-password?error=invalid_characters";
         }
@@ -140,13 +126,10 @@ public class LoginController {
 
         return "redirect:/?reset_success=true";
     }
-    // 🌐 国際化：言語切り替え用のGETエンドポイントを追加
+
     @GetMapping("/change-lang")
     public String changeLanguage(@RequestParam("locale") String locale, 
                                  @RequestParam(value = "redirect", defaultValue = "/") String redirect) {
-        // ロケール変更はSpringの標準インターセプターがパラメーターを検知して自動で行います。
-        // 処理が終わったら、指定されたURL（ログイン画面である "/"）へリダイレクトします。
         return "redirect:" + redirect;
     }
-
 }
