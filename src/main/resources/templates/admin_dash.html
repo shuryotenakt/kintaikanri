@@ -9,85 +9,109 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <style>
-        body {
-            background-color: #f8f9fa;
-            font-family: 'Inter', -apple-system, sans-serif;
-            color: #333;
-            overflow-x: hidden;
-            /* 画面全体の横スクロールを絶対に出さない */
-        }
+   /* 1. 基本設定 */
+    body {
+        background-color: #f8f9fa;
+        font-family: 'Inter', sans-serif;
+        color: #333;
+        margin: 0;
+        overflow-x: hidden;
+    }
 
-        /* 画面全体のレイアウト：左右をきっちり固定 */
+    /* 2. PC用レイアウト */
+    .admin-layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        min-height: 100vh;
+        width: 100vw;
+    }
+
+    /* 3. スマホ・縦画面時のレスポンシブ修正 */
+    @media (max-width: 991px) {
         .admin-layout {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            min-height: calc(100vh - 54px);
-            width: 100vw;
+            grid-template-columns: 1fr; /* サイドバーをメインの上に配置する等 */
         }
-
-        /* ================= 左側：サイドバー ================= */
+        
+        /* サイドバーを非表示にするのではなく、縦に並べる設定 */
         .admin-sidebar {
-            background-color: #ffffff;
-            border-right: 1px solid #eaeaea;
-            padding: 20px;
-            height: calc(100vh - 54px);
-            position: sticky;
-            top: 54px;
-            overflow-y: auto;
+            height: auto !important;
+            position: relative !important;
+            top: 0 !important;
+            border-right: none;
+            border-bottom: 1px solid #eaeaea;
+        }
+
+        /* 画面が小さいときはメニューを縦並びに */
+        .sidebar-menu {
             display: flex;
-            flex-direction: column;
-            gap: 20px;
-            box-sizing: border-box;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 5px;
         }
+    }
 
-        .sidebar-menu,
-        .sidebar-card {
-            flex-shrink: 0;
-        }
+    /* 4. メニュー色の修正（未選択時を確実にグレーにする） */
+    .sidebar-menu .nav-link {
+        color: #495057 !important;
+        background: transparent !important;
+        transition: 0.2s;
+    }
+    .sidebar-menu .nav-link.active {
+        background: #e7f1ff !important;
+        color: #0d6efd !important;
+    }
 
-        .sidebar-menu .nav-link {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 15px;
-            color: #495057;
-            font-weight: 600;
-            border-radius: 8px;
-            margin-bottom: 5px;
-            border: 1px solid transparent;
-            transition: all 0.2s;
-        }
+    /* 5. 新規登録画面の崩れ防止（専用クラス） */
+    .auth-page {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        padding: 20px;
+    }
+    .auth-card {
+        width: 100%;
+        max-width: 400px;
+        background: #fff;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
 
-        .sidebar-menu .nav-link:hover {
-            background-color: #f1f3f5;
-            color: #0d6efd;
-        }
+    /* ================= サイドバー：色の修正 ================= */
+    .admin-sidebar {
+        background-color: #ffffff;
+        border-right: 1px solid #eaeaea;
+        padding: 20px;
+        height: calc(100vh - 54px);
+        position: sticky;
+        top: 54px;
+        overflow-y: auto;
+    }
 
-        .sidebar-menu .nav-link.active {
-            background-color: #e7f1ff;
-            color: #0d6efd;
-            border-color: #dee2e6;
-        }
-
-        .sidebar-card {
-            background: #ffffff;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-        }
-
-        .sidebar-card-header {
-            padding: 12px 15px;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-
-        .employee-list-scroll {
-            max-height: none !important;
-            overflow-y: visible !important;
-        }
-
+    /* 未選択時の色を明示的に指定（青色にならないようにする） */
+    .sidebar-menu .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 15px;
+        color: #495057 !important; /* デフォルトの色を明示 */
+        background-color: transparent !important;
+        font-weight: 600;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        transition: all 0.2s;
+    }
+    .sidebar-menu .nav-link:hover {
+        background-color: #f1f3f5 !important;
+        color: #333 !important;
+    }
+    /* 選択中（active）のみ青色 */
+    .sidebar-menu .nav-link.active {
+        background-color: #e7f1ff !important;
+        color: #0d6efd !important;
+        border-color: #dee2e6;
+    }
         /* ================= 右側：メインコンテンツ ================= */
         .admin-main-content {
             padding: 30px;
