@@ -517,7 +517,7 @@
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="fw-bold small text-muted text-nowrap">表示月:</span>
                                     <input type="month" id="shiftMonthSelect" name="month"
-                                        th:value="${selectedMonth != null ? selectedMonth : '2026-05'}"
+                                        th:value="${selectedMonth != null ? selectedMonth :#temporals.format(#temporals.createNow(), 'yyyy-MM')}"
                                         class="form-control form-control-sm" style="width: 160px;"
                                         onchange="updateShiftCalendarHeaders()">
                                 </div>
